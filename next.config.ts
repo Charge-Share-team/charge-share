@@ -1,16 +1,13 @@
 /** @type {import('next').NextConfig} */
-const isGithubActions = process.env.GITHUB_ACTIONS === 'true';
+const isProd = process.env.NODE_ENV === 'production';
 
 const nextConfig = {
-  // Required for GitHub Pages
   output: 'export',
-  
- 
-  basePath:  '/charge-share'  ,
-  assetPrefix:'/charge-share/' ,
-
+  // Active for GitHub Pages deployment
+  basePath: '/charge-share', 
+  assetPrefix: '/charge-share/',
   images: {
-    unoptimized: true, 
+    unoptimized: true,
   },
 };
 

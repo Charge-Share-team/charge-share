@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useMockAuth } from '@/components/AuthProvider';
-import PayoutModal from '@/components/PayoutModal'; // Import the new modal
+import PayoutModal from '@/components/PayoutModal';
 
 const RECENT_PAYOUTS = [
   { id: 1, car: 'Tesla Model 3', energy: '42.5 kWh', amount: '+₹850.00', status: 'Completed' },
@@ -12,30 +12,26 @@ const RECENT_PAYOUTS = [
 ];
 
 export default function HostDashboard() {
-  const { data: session, status, signIn } = useMockAuth();
+  // Use user instead of session
+  const { user, login } = useMockAuth();
   
   const [isOnline, setIsOnline] = useState(true);
   const [showSetup, setShowSetup] = useState(false);
-  const [showPayoutModal, setShowPayoutModal] = useState(false); // State for Payout Modal
+  const [showPayoutModal, setShowPayoutModal] = useState(false);
   const [newCharger, setNewCharger] = useState({
     name: "My Home Charger",
     connector: "Type 2",
     price: "12"
   });
 
-  if (status === "loading") return (
-    <div className="min-h-screen bg-[#050a14] flex items-center justify-center">
-      <div className="animate-pulse text-blue-500 font-black uppercase tracking-widest">Initialising Grid...</div>
-    </div>
-  );
-
-  if (status === "unauthenticated" || !session) {
+  // Access Denied Check (Replacing status/session check)
+  if (!user) {
     return (
       <div className="min-h-screen bg-[#050a14] flex flex-col items-center justify-center p-6 text-center">
         <h2 className="text-3xl font-black italic uppercase mb-4 text-white">Access Denied</h2>
         <p className="text-zinc-500 mb-8 uppercase text-[10px] tracking-widest">Verified Host Credentials Required</p>
         <button 
-          onClick={() => signIn()} 
+          onClick={() => login()}
           className="bg-blue-600 hover:bg-blue-500 text-white px-10 py-4 rounded-full font-black italic uppercase transition-all shadow-lg shadow-blue-600/20"
         >
           Initialize Login
@@ -54,8 +50,8 @@ export default function HostDashboard() {
       const hostedStation = {
         ...newCharger,
         id: `host-${Date.now()}`,
-        hostId: session.user?.id || 'anonymous',
-        hostEmail: session.user?.email,
+        hostId: user.id, // Updated from session
+        hostEmail: user.email, // Updated from session
         location: [pos.coords.latitude, pos.coords.longitude],
         type: 'private',
         address: "Private Residence, Chandigarh",
@@ -66,7 +62,7 @@ export default function HostDashboard() {
       const existing = JSON.parse(localStorage.getItem('my_hosted_chargers') || '[]');
       localStorage.setItem('my_hosted_chargers', JSON.stringify([...existing, hostedStation]));
       
-      alert(`Success! Charger registered to ${session.user?.name}`);
+      alert(`Success! Charger registered to ${user.name}`); // Updated from session
       setShowSetup(false);
     }, (err) => {
       alert("Location access denied. Please enable GPS to host.");
@@ -80,7 +76,7 @@ export default function HostDashboard() {
         <div>
           <h1 className="text-2xl font-black italic uppercase tracking-tighter">Host Mode</h1>
           <p className="text-blue-500 text-[9px] font-bold tracking-[0.3em] uppercase">
-            {showSetup ? "Charger Setup" : `HOST: ${session.user?.name?.split(' ')[0] || 'VERIFIED'}`}
+            {showSetup ? "Charger Setup" : `HOST: ${user.name.split(' ')[0]}`}
           </p>
         </div>
         <button 
@@ -93,7 +89,7 @@ export default function HostDashboard() {
 
       {!showSetup ? (
         <>
-          {/* Dashboard Stats - Now Clickable */}
+          {/* Dashboard Stats */}
           <div 
             onClick={() => setShowPayoutModal(true)}
             className="cursor-pointer group bg-gradient-to-br from-blue-900/40 to-black border border-blue-500/20 rounded-[32px] p-8 mb-6 shadow-2xl relative overflow-hidden transition-all hover:scale-[1.02] hover:border-blue-500/40"
@@ -155,7 +151,6 @@ export default function HostDashboard() {
           </div>
         </>
       ) : (
-        /* Setup Form Code (Same as before) */
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-[32px]">
              <label className="text-zinc-500 text-[9px] font-bold uppercase tracking-widest block mb-4">Charger Hardware</label>
@@ -182,7 +177,6 @@ export default function HostDashboard() {
         </div>
       )}
 
-      {/* Payout Modal Overlay */}
       {showPayoutModal && (
         <PayoutModal 
           amount="₹14,242.80" 
@@ -194,7 +188,7 @@ export default function HostDashboard() {
         />
       )}
 
-      {/* Navigation (Same as before) */}
+      {/* Navigation */}
       <nav className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-sm h-16 bg-[#0a0a0a]/80 backdrop-blur-xl border border-zinc-800/50 rounded-full flex items-center justify-around px-6 z-50">
         <Link href="/" className="text-zinc-500 hover:text-white flex flex-col items-center gap-1">
           <span className="text-lg">◓</span>

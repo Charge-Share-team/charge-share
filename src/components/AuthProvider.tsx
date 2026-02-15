@@ -2,41 +2,34 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-const AuthContext = createContext<any>(null);
+// Define a simple mock user type
+type User = {
+  id: string;
+  name: string;
+  email: string;
+} | null;
 
-export default function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<any>(null);
-  const [status, setStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
+interface AuthContextType {
+  user: User;
+  login: () => void;
+  logout: () => void;
+}
 
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User>(null);
+
+  // Initialize with a mock user so the Dashboard doesn't crash
   useEffect(() => {
-    const savedUser = localStorage.getItem('demo_user');
-    if (savedUser) {
-      setSession({ user: JSON.parse(savedUser) });
-      setStatus('authenticated');
-    } else {
-      setStatus('unauthenticated');
-    }
+    setUser({ id: '1', name: 'Demo User', email: 'demo@example.com' });
   }, []);
 
-  const signIn = () => {
-    const mockUser = { 
-      id: 'host-demo-99', 
-      name: 'Demo Host', 
-      email: 'host@chargeshare.demo' 
-    };
-    localStorage.setItem('demo_user', JSON.stringify(mockUser));
-    setSession({ user: mockUser });
-    setStatus('authenticated');
-  };
-
-  const signOut = () => {
-    localStorage.removeItem('demo_user');
-    setSession(null);
-    setStatus('unauthenticated');
-  };
+  const login = () => setUser({ id: '1', name: 'Demo User', email: 'demo@example.com' });
+  const logout = () => setUser(null);
 
   return (
-    <AuthContext.Provider value={{ data: session, status, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
