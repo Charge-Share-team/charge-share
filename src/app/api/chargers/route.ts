@@ -5,7 +5,7 @@ export async function GET(request: Request) {
   const lat = searchParams.get('lat');
   const lng = searchParams.get('lng');
   
-  // Note: We don't use NEXT_PUBLIC here because this is SERVER-SIDE
+  // Use the secret server-side environment variable
   const key = process.env.NEXT_PUBLIC_OCM_API_KEY;
 
   if (!key) {
@@ -13,18 +13,33 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "API Key missing" }, { status: 500 });
   }
 
-  const url = `https://api.openchargemap.io/v3/poi/?output=json&latitude=${lat}&longitude=${lng}&distance=25&distanceunit=KM&maxresults=50&key=${key}`;
+  // 🚀 OPTIMIZED URL: 
+  // 1. Expanded distance to 100KM
+  // 2. Increased maxresults to 250
+  // 3. Added compact=true & verbose=false to minimize data size
+  const url = `https://api.openchargemap.io/v3/poi/?output=json&latitude=${lat}&longitude=${lng}&distance=100&distanceunit=KM&maxresults=250&compact=true&verbose=false&key=${key}`;
 
   try {
     const response = await fetch(url, {
-      headers: { 'User-Agent': 'ChargeShare-App' } // Required by some APIs to avoid 403s
+      headers: { 
+        'User-Agent': 'ChargeShare-App',
+        'Accept': 'application/json' 
+      }
     });
     
-    if (!response.ok) throw new Error(`OCM API responded with ${response.status}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`OCM API responded with ${response.status}: ${errorText}`);
+    }
     
     const data = await response.json();
+    
+    // Log for debugging: See how many results were actually found
+    console.log(`Successfully fetched ${data.length} chargers from OCM.`);
+    
     return NextResponse.json(data);
   } catch (error: any) {
+    console.error("Proxy Fetch Error:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

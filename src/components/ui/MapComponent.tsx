@@ -61,7 +61,7 @@ export default function MapComponent() {
 try {
   // We fetch from our OWN server route now
  // This bypasses CORS by using your local server
-const response = await fetch(`/api/chargers?lat=${userLat}&lng=${userLong}`);
+const response = await fetch('/api/chargers?lat=' + userLat + '&lng=' + userLong);
   
 
   if (!response.ok) {
