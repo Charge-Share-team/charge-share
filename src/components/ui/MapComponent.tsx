@@ -57,26 +57,32 @@ export default function MapComponent() {
         // 2. Fetch Global Chargers from Open Charge Map
         const ocmKey = process.env.NEXT_PUBLIC_OCM_API_KEY;
         let ocmData: any[] = [];
-        
-        try {
-          const response = await fetch(
-            `https://api.openchargemap.io/v3/poi/?output=json&latitude=${userLat}&longitude=${userLong}&distance=25&distanceunit=KM&maxresults=50&key=${ocmKey}`
-          );
-          const rawOcm = await response.json();
-          
-          // Map OCM data to your app's charger format
-          ocmData = rawOcm.map((poi: any) => ({
-            id: `ocm-${poi.ID}`,
-            name: poi.AddressInfo.Title,
-            latitude: poi.AddressInfo.Latitude,
-            longitude: poi.AddressInfo.Longitude,
-            charger_type: poi.Connections?.[0]?.ConnectionType?.Title || 'Public Station',
-            price_per_kwh: 12, // Default price for public hubs
-            is_public: true // Force blue icon for OCM data
-          }));
-        } catch (err) {
-          console.error("OCM Fetch Error:", err);
-        }
+       // Inside your useEffect in MapComponent.tsx
+try {
+  // We fetch from our OWN server route now
+ // This bypasses CORS by using your local server
+const response = await fetch(`/api/chargers?lat=${userLat}&lng=${userLong}`);
+  
+
+  if (!response.ok) {
+     const errorData = await response.json();
+     throw new Error(errorData.error || "Proxy failed");
+  }
+
+  const rawOcm = await response.json();
+  
+  ocmData = rawOcm.map((poi: any) => ({
+    id: `ocm-${poi.ID}`,
+    name: poi.AddressInfo.Title,
+    latitude: poi.AddressInfo.Latitude,
+    longitude: poi.AddressInfo.Longitude,
+    charger_type: poi.Connections?.[0]?.ConnectionType?.Title || 'Public Station',
+    price_per_kwh: 12,
+    is_public: true 
+  }));
+} catch (err) {
+  console.error("Public fetch failed:", err);
+}
 
         // 3. Merge and display
         setChargers([...(localData || []), ...ocmData]);
