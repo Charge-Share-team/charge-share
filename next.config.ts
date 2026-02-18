@@ -1,15 +1,10 @@
 /** @type {import('next').NextConfig} */
-const isProd = process.env.NODE_ENV === 'production';
 
 const nextConfig = {
-  output: 'export',
-
-
-  // Active for GitHub Pages deployment
-
-
-  basePath: '/charge-share', 
-  assetPrefix: '/charge-share/',
+  // output: 'export', // Kept commented out for Vercel dynamic support
+  
+  // REMOVED basePath and assetPrefix for Vercel deployment
+  
   images: {
     unoptimized: true,
   },
