@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
-
+export const dynamic = 'force-dynamic';
 export default function HostDashboard() {
   const supabase = createClient();
   const router = useRouter();
