@@ -13,37 +13,36 @@ interface RoutingProps {
 export default function RoutingControl({ start, end }: RoutingProps) {
   const map = useMap();
 
-useEffect(() => {
-  if (!map || !start || !end) return;
+  // Inside src/components/ui/RoutingControl.tsx
 
-  const routingControl = L.Routing.control({
-    waypoints: [L.latLng(start[0], start[1]), L.latLng(end[0], end[1])],
-    lineOptions: {
-      styles: [{ color: "#10b981", weight: 6, opacity: 0.8 }],
-      extendToWaypoints: true,
-      missingRouteTolerance: 10
-    },
-    show: false,
-    addWaypoints: false,
-    draggableWaypoints: false,
-    fitSelectedRoutes: true,
-  });
+  useEffect(() => {
+    if (!map || !start || !end) return;
 
-  // Safely add to map
-  routingControl.addTo(map);
+    // Use 'any' type cast if the leaflet-routing-machine types are being stubborn
+    const routingControl = (L as any).Routing.control({
+      waypoints: [L.latLng(start[0], start[1]), L.latLng(end[0], end[1])],
+      lineOptions: {
+        styles: [{ color: "#10b981", weight: 6, opacity: 0.8 }],
+      },
+      show: false,
+      addWaypoints: false,
+      draggable: false, // ✅ FIXED: Changed from draggableWaypoints
+      fitSelectedRoutes: true,
+    });
 
-return () => {
-    // Check if the control and map still exist before trying to remove
-    if (map && routingControl) {
-      try {
-        // Use removeControl instead of removeLayer for L.Routing
-        map.removeControl(routingControl);
-      } catch (e) {
-        console.warn("Routing cleanup bypassed safely");
+    routingControl.addTo(map);
+
+    return () => {
+      // Safety check to prevent the "removeLayer of null" error
+      if (map && routingControl) {
+        try {
+          map.removeControl(routingControl);
+        } catch (e) {
+          console.warn("Cleanup handled:", e);
+        }
       }
-    }
-  };
-}, [map, start, end]);
+    };
+  }, [map, start, end]);
 
   return null;
 }

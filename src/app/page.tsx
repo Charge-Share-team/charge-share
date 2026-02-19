@@ -79,7 +79,7 @@ export default function Home() {
       const { data, error } = await supabase.rpc('nearby_chargers', {
         user_lat: userLocation.lat,
         user_long: userLocation.lng,
-        radius_meters: 25000 
+        radius_meters: 25000
       });
 
       if (data) {
@@ -161,7 +161,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-black flex flex-col items-center pb-32">
       <div className="w-full max-w-md px-6 pt-12">
-        
+
         {/* Header Section */}
         <div className="flex justify-between items-start mb-10">
           <div className="w-10" />
@@ -194,9 +194,16 @@ export default function Home() {
                 ) : (
                   <ChargerList
                     items={nearbyStations}
-                    onStart={(rate: number, name: string) => {
+                    onBook={(station: any) => {
+                      // 1. Extract values from the station object
+                      const rate = station.price_per_kwh || 11;
+                      const name = station.name || "Unknown Station";
+
+                      // 2. Save to LocalStorage
                       localStorage.setItem('currentStationRate', rate.toString());
                       localStorage.setItem('currentStationName', name);
+
+                      // 3. Update States
                       setStationRate(rate);
                       setStationName(name);
                       setChargingStatus('CHARGING');
