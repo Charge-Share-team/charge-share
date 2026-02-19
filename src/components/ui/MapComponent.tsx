@@ -1,145 +1,127 @@
 "use client";
-import { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import dynamic from 'next/dynamic';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import 'leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css';
-import 'leaflet-defaulticon-compatibility';
-import { createClient } from '@/utils/supabase/client';
-import PaymentModal from '@/components/PaymentModal';
 
-// Helper to update map view when position changes
-function RecenterMap({ pos }: { pos: [number, number] }) {
-  const map = useMap();
-  useEffect(() => {
-    map.setView(pos);
-  }, [pos, map]);
-  return null;
-}
+// Standard Leaflet Icons (Ensures visibility)
+const blueIcon = L.icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
+
+const greenIcon = L.icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
+
+// Pulsating User Icon
+const userIcon = L.divIcon({
+  className: 'user-location-marker',
+  html: `<div class="pulse"></div>`,
+  iconSize: [20, 20],
+  iconAnchor: [10, 10],
+});
+
+const RoutingControl = dynamic(() => import("./RoutingControl"), { ssr: false });
 
 export default function MapComponent() {
-  const router = useRouter();
-  const supabase = createClient();
+  const mapRef = useRef<L.Map | null>(null); // Ref to control map programmatically
+  const [userPos, setUserPos] = useState<[number, number] | null>(null);
+  const [destination, setDestination] = useState<[number, number] | null>(null);
   const [chargers, setChargers] = useState<any[]>([]);
-  const [pos, setPos] = useState<[number, number]>([30.7333, 76.7794]); 
-  const [showPayment, setShowPayment] = useState(false);
-  const [selectedStation, setSelectedStation] = useState<any>(null);
 
-  // Define icons
-  const iconPrivate = new L.Icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-    iconSize: [25, 41], iconAnchor: [12, 41],
-  });
-
-  const iconPublic = new L.Icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-    iconSize: [25, 41], iconAnchor: [12, 41],
-  });
+  // Function to set route and clear popup for the driver
+  const handleNavigate = (coords: [number, number]) => {
+    setDestination(coords);
+    
+    // Auto-close any open popups so the path is clear
+    if (mapRef.current) {
+      mapRef.current.closePopup();
+    }
+  };
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(async (p) => {
-        const userLat = p.coords.latitude;
-        const userLong = p.coords.longitude;
-        const userPos: [number, number] = [userLat, userLong];
-        setPos(userPos);
-        
-        // 1. Fetch Local Chargers from Supabase RPC
-        const { data: localData } = await supabase.rpc('nearby_chargers', {
-          user_lat: userLat,
-          user_long: userLong,
-          radius_meters: 25000 // 25km
-        });
+    // Inject Pulse CSS
+    const style = document.createElement('style');
+    style.innerHTML = `
+      .pulse { width: 15px; height: 15px; background: #3b82f6; border-radius: 50%; box-shadow: 0 0 0 rgba(59, 130, 246, 0.4); animation: pulse 2s infinite; border: 2px solid white; }
+      @keyframes pulse { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 15px rgba(59, 130, 246, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); } }
+    `;
+    document.head.appendChild(style);
 
-        // 2. Fetch Global Chargers from Open Charge Map
-        const ocmKey = process.env.NEXT_PUBLIC_OCM_API_KEY;
-        let ocmData: any[] = [];
-       // Inside your useEffect in MapComponent.tsx
-try {
-  // We fetch from our OWN server route now
- // This bypasses CORS by using your local server
-const response = await fetch('/api/chargers?lat=' + userLat + '&lng=' + userLong);
-  
+    navigator.geolocation.getCurrentPosition((p) => {
+      const uCoords: [number, number] = [p.coords.latitude, p.coords.longitude];
+      setUserPos(uCoords);
 
-  if (!response.ok) {
-     const errorData = await response.json();
-     throw new Error(errorData.error || "Proxy failed");
-  }
+      const fetchAll = async () => {
+        try {
+          const res = await fetch(`/api/chargers`);
+          const result = await res.json();
+          
+          const local = (result.local || []).map((c: any) => ({ ...c, isLocal: true }));
+          const external = (result.external || []).map((c: any) => ({ ...c, isLocal: false }));
+          const combined = [...local, ...external];
 
-  const rawOcm = await response.json();
-  
-  ocmData = rawOcm.map((poi: any) => ({
-    id: `ocm-${poi.ID}`,
-    name: poi.AddressInfo.Title,
-    latitude: poi.AddressInfo.Latitude,
-    longitude: poi.AddressInfo.Longitude,
-    charger_type: poi.Connections?.[0]?.ConnectionType?.Title || 'Public Station',
-    price_per_kwh: 12,
-    is_public: true 
-  }));
-} catch (err) {
-  console.error("Public fetch failed:", err);
-}
+          const processed = combined.map((c: any) => {
+            const lat = parseFloat(c.latitude || c.Latitude || c.AddressInfo?.Latitude);
+            const lng = parseFloat(c.longitude || c.Longitude || c.AddressInfo?.Longitude);
 
-        // 3. Merge and display
-        setChargers([...(localData || []), ...ocmData]);
-      });
-    }
-  }, [supabase]);
+            if (isNaN(lat) || isNaN(lng)) return null;
 
-  const handleBookClick = (station: any) => {
-    setSelectedStation(station);
-    setShowPayment(true);
-  };
+            const dist = (L.latLng(uCoords).distanceTo(L.latLng(lat, lng)) / 1000).toFixed(1);
 
-  const handlePaymentSuccess = () => {
-    const rate = selectedStation?.price_per_kwh || 12;
-    localStorage.setItem('chargingStatus', 'CHARGING');
-    localStorage.setItem('currentStationName', selectedStation.name);
-    localStorage.setItem('currentStationRate', rate.toString());
-    localStorage.setItem('batteryLevel', '21'); 
-    localStorage.setItem('liveKwh', '0.0');
-    router.push('/');
-  };
+            return {
+              ...c,
+              lat, 
+              lng,
+              distance: dist,
+              name: c.name || c.AddressInfo?.Title || "EV Station",
+            };
+          }).filter(Boolean);
+
+          setChargers(processed);
+        } catch (err) {
+          console.error("API Fetch Error:", err);
+        }
+      };
+      fetchAll();
+    }, (err) => console.error("Geolocation Error:", err));
+  }, []);
 
   return (
-    <div className="h-full w-full relative">
-      {showPayment && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-           <PaymentModal 
-             amount="11" 
-             onSuccess={handlePaymentSuccess} 
-             onClose={() => setShowPayment(false)}
-           />
-        </div>
-      )}
-
-      <MapContainer center={pos} zoom={12} className="h-full w-full">
+    <div className="h-screen w-full relative">
+      <MapContainer 
+        center={userPos || [30.7333, 76.7794]} 
+        zoom={11} 
+        className="h-full"
+        ref={mapRef} // Set the reference here
+      >
         <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-        <RecenterMap pos={pos} />
         
-        {chargers.map((charger) => (
+        {userPos && <Marker position={userPos} icon={userIcon} />}
+        {userPos && destination && <RoutingControl start={userPos} end={destination} />}
+
+        {chargers.map((c, i) => (
           <Marker 
-            key={charger.id} 
-            position={[charger.latitude, charger.longitude]} 
-            icon={charger.is_public ? iconPublic : iconPrivate}
+            key={`${c.id}-${i}`} 
+            position={[c.lat, c.lng]} 
+            icon={c.isLocal ? greenIcon : blueIcon} 
           >
             <Popup>
-              <div className="p-2 text-black min-w-[150px]">
-                <h3 className="font-bold text-sm uppercase italic leading-tight">
-                  {charger.name}
-                </h3>
-                <p className="text-[10px] text-zinc-500 mb-2">
-                  {charger.charger_type} • ₹{charger.price_per_kwh}/kWh
-                </p>
+              <div className="text-black">
+                <p className="font-bold">{c.name}</p>
+                <p className="text-emerald-600 font-bold">{c.distance} KM away</p>
                 <button 
-                  onClick={() => handleBookClick(charger)} 
-                  className="w-full bg-emerald-500 text-black py-2 rounded-lg text-[9px] font-black uppercase"
+                  onClick={() => handleNavigate([c.lat, c.lng])} // Call the cleaner handler
+                  className="mt-2 bg-emerald-500 text-white px-4 py-1 rounded w-full font-bold uppercase text-[10px]"
                 >
-                  Book Station
+                  Book & Navigate
                 </button>
               </div>
             </Popup>

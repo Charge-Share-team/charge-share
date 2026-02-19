@@ -9,11 +9,25 @@ import Link from 'next/link';
 import FinalPaymentModal from '@/components/FinalPaymentModal';
 import { createClient } from '@/utils/supabase/client';
 
+// --- STABLE MATH HELPER ---
+// Uses Haversine formula to calculate distance without needing Leaflet/Window objects
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371; // Earth's radius in KM
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 export default function Home() {
   const router = useRouter();
   const supabase = createClient();
 
-  // --- REAL-WORLD CONSTANTS ---
+  // --- CONSTANTS ---
   const BATTERY_CAPACITY = 30;
   const MAX_RANGE = 325;
   const START_LEVEL = 21;
@@ -27,14 +41,12 @@ export default function Home() {
   const [stationName, setStationName] = useState("Sarah's Driveway");
   const [stationRate, setStationRate] = useState(11);
 
-  // NEARBY & FILTER STATES
   const [nearbyStations, setNearbyStations] = useState<any[]>([]);
   const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(null);
   const userVehiclePlug = "Type 2";
 
-  // 1. GPS & DATA INITIALIZATION
+  // 1. INITIALIZATION & RECOVERY
   useEffect(() => {
-    // A. Recovery from LocalStorage
     const savedStatus = localStorage.getItem('chargingStatus') as any;
     const savedKwh = localStorage.getItem('liveKwh');
     const savedBat = localStorage.getItem('batteryLevel');
@@ -49,40 +61,52 @@ export default function Home() {
     if (savedName) setStationName(savedName);
     if (savedRate) setStationRate(parseInt(savedRate));
 
-    // B. Get User GPS
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition((position) => {
         setUserLocation({
           lat: position.coords.latitude,
           lng: position.coords.longitude
         });
-      });
+      }, (err) => console.error("GPS Access Denied:", err));
     }
   }, []);
 
-  // 2. FETCH NEARBY COMPATIBLE CHARGERS
+  // 2. DATA FETCHING (RPC call with safe distance mapping)
   useEffect(() => {
     const fetchNearby = async () => {
       if (!userLocation) return;
 
-      // Calls the Postgres function we created earlier
       const { data, error } = await supabase.rpc('nearby_chargers', {
         user_lat: userLocation.lat,
         user_long: userLocation.lng,
-        radius_meters: 25000 // 25km radius
+        radius_meters: 25000 
       });
 
       if (data) {
-        // Filter by vehicle plug type automatically
-        const compatible = data.filter((c: any) => c.charger_type === userVehiclePlug);
+        const compatible = data
+          .filter((c: any) => c.charger_type === userVehiclePlug)
+          .map((c: any) => {
+            // Safe parsing to prevent NaN
+            const cLat = parseFloat(c.latitude || c.lat);
+            const cLng = parseFloat(c.longitude || c.lng);
+
+            if (!isNaN(cLat) && !isNaN(cLng)) {
+              const dist = calculateDistance(userLocation.lat, userLocation.lng, cLat, cLng);
+              return { ...c, distance: dist.toFixed(1) };
+            }
+            return { ...c, distance: "0.0" };
+          });
+
         setNearbyStations(compatible);
+      } else if (error) {
+        console.error("Supabase Error:", error);
       }
     };
 
     fetchNearby();
   }, [userLocation, supabase]);
 
-  // 3. PERSISTENCE & PHYSICS TICKER (Existing Logic)
+  // 3. PERSISTENCE
   useEffect(() => {
     if (chargingStatus) {
       localStorage.setItem('chargingStatus', chargingStatus);
@@ -92,6 +116,7 @@ export default function Home() {
     }
   }, [chargingStatus, liveKwh, batteryLevel, range]);
 
+  // 4. CHARGING LOGIC (Physics Ticker)
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (chargingStatus === 'CHARGING') {
@@ -136,8 +161,8 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-black flex flex-col items-center pb-32">
       <div className="w-full max-w-md px-6 pt-12">
-
-        {/* Header & Reset */}
+        
+        {/* Header Section */}
         <div className="flex justify-between items-start mb-10">
           <div className="w-10" />
           <div className="text-center">
@@ -160,17 +185,13 @@ export default function Home() {
                 <h3 className="text-zinc-400 text-[10px] uppercase tracking-widest font-bold">Stations Near You</h3>
                 <span className="text-emerald-500 text-[9px] font-black uppercase">{nearbyStations.length} Compatible</span>
               </div>
-
               <FilterChips />
-
               <div className="mt-4">
                 {nearbyStations.length === 0 ? (
                   <div className="p-10 border border-dashed border-zinc-900 rounded-[32px] text-center">
                     <p className="text-zinc-700 text-[10px] uppercase font-bold animate-pulse">Scanning 25km radius...</p>
                   </div>
                 ) : (
-                  /* Pass the auto-fetched nearby stations to the list */
-                  // Around line 175 in src/app/page.tsx
                   <ChargerList
                     items={nearbyStations}
                     onStart={(rate: number, name: string) => {
@@ -185,7 +206,7 @@ export default function Home() {
               </div>
             </div>
           ) : (
-            /* Charging View */
+            /* Active Charging View */
             <div className="bg-zinc-900 border border-emerald-500/30 p-8 rounded-[40px] shadow-[0_0_50px_rgba(16,185,129,0.15)] animate-in zoom-in-95">
               <div className="flex justify-between items-center mb-8">
                 <div>
@@ -195,7 +216,6 @@ export default function Home() {
                 </div>
                 <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-400 animate-pulse border border-emerald-500/20">⚡</div>
               </div>
-
               <div className="grid grid-cols-2 gap-4 mb-8">
                 <div className="bg-zinc-800/50 p-5 rounded-3xl border border-white/5">
                   <p className="text-zinc-500 text-[8px] uppercase font-black mb-1">Energy Added</p>
@@ -206,7 +226,6 @@ export default function Home() {
                   <p className="text-2xl font-black text-emerald-400 italic">₹{currentTotalCost.toFixed(0)}</p>
                 </div>
               </div>
-
               <button
                 onClick={() => setChargingStatus('PAYING')}
                 className="w-full py-5 bg-emerald-500 text-black font-black uppercase text-xs tracking-widest rounded-2xl active:scale-95 transition-all"
@@ -235,7 +254,7 @@ export default function Home() {
         />
       )}
 
-      {/* Navigation Bar (Unchanged) */}
+      {/* Persistent Navigation Bar */}
       <nav className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-sm h-16 bg-zinc-900/80 backdrop-blur-xl border border-zinc-800/50 rounded-3xl flex items-center justify-around z-50">
         <Link href="/" className="flex flex-col items-center text-emerald-400 gap-1">
           <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full mb-1"></div>
