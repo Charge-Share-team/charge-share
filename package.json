@@ -2,6 +2,9 @@
   "name": "charge-share",
   "version": "0.1.0",
   "private": true,
+  "config": {
+    "npm_config_legacy_peer_deps": "true"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
