@@ -1,12 +1,8 @@
 /** @type {import('next').NextConfig} */
-
 const nextConfig = {
-  // output: 'export', // Kept commented out for Vercel dynamic support
-  
-  // REMOVED basePath and assetPrefix for Vercel deployment
-  
+  output: 'export', // <--- Add this line
   images: {
-    unoptimized: true,
+    unoptimized: true, // Static exports don't support the default Image Optimization
   },
 };
 
