@@ -20,6 +20,13 @@ const greenIcon = L.icon({
   iconAnchor: [12, 41],
 });
 
+const blueIcon = L.icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+});
+
 const userIcon = L.divIcon({
   className: 'user-location-marker',
   html: `<div class="pulse"></div>`,
@@ -83,11 +90,20 @@ export default function MapComponent({ setMapInstance, destination, setDestinati
 
       try {
         await import('leaflet.markercluster');
-        const clusterGroup = (L as any).markerClusterGroup({
-          showCoverageOnHover: false,
-          maxClusterRadius: 50,
-          spiderfyOnMaxZoom: true
-        });
+       const clusterGroup = (L as any).markerClusterGroup({
+  showCoverageOnHover: false,
+  maxClusterRadius: 50,
+  spiderfyOnMaxZoom: true,
+  // This function creates the clean, custom circles
+  iconCreateFunction: function (cluster: any) {
+    const count = cluster.getChildCount();
+    return L.divIcon({
+      html: `<div class="custom-cluster"><span>${count}</span></div>`,
+      className: 'marker-cluster-empty', // Remove default styles
+      iconSize: L.point(40, 40),
+    });
+  }
+});
         clusterGroupRef.current = clusterGroup;
 
         map.whenReady(() => {
@@ -116,17 +132,21 @@ export default function MapComponent({ setMapInstance, destination, setDestinati
       }
     }, (err) => console.warn("Location blocked"), { enableHighAccuracy: true });
 
-    fetch(`/api/chargers`)
-      .then(res => res.json())
-      .then(result => {
-        const all = [...(result.local || []), ...(result.external || [])];
-        const processed = all.map((c: any) => {
-          const lat = parseFloat(c.latitude || c.Latitude || c.AddressInfo?.Latitude);
-          const lng = parseFloat(c.longitude || c.Longitude || c.AddressInfo?.Longitude);
-          return isNaN(lat) || isNaN(lng) ? null : { ...c, lat, lng, name: c.name || c.AddressInfo?.Title };
-        }).filter(Boolean);
-        setChargers(processed);
-      });
+   fetch(`/api/chargers`)
+  .then(res => res.json())
+  .then(result => {
+    // Label local chargers as 'db' and external as 'api'
+    const local = (result.local || []).map((c: any) => ({ ...c, source: 'db' }));
+    const external = (result.external || []).map((c: any) => ({ ...c, source: 'api' }));
+    
+    const all = [...local, ...external];
+    const processed = all.map((c: any) => {
+      const lat = parseFloat(c.latitude || c.Latitude || c.AddressInfo?.Latitude);
+      const lng = parseFloat(c.longitude || c.Longitude || c.AddressInfo?.Longitude);
+      return isNaN(lat) || isNaN(lng) ? null : { ...c, lat, lng, name: c.name || c.AddressInfo?.Title };
+    }).filter(Boolean);
+    setChargers(processed);
+  });
 
     return () => {
       navigator.geolocation.clearWatch(watchId);
@@ -140,25 +160,44 @@ export default function MapComponent({ setMapInstance, destination, setDestinati
   useEffect(() => {
     if (!clusterGroupRef.current || !mapRef.current || chargers.length === 0) return;
     clusterGroupRef.current.clearLayers();
-    chargers.forEach((c) => {
-      const marker = L.marker([c.lat, c.lng], { icon: greenIcon })
-        .bindPopup(`
-          <div style="color:black; padding:8px; min-width:180px;">
-            <b style="font-size:14px;">${c.name || 'EV Station'}</b>
-            <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
-              <button onclick="window.dispatchEvent(new CustomEvent('nav-only', {detail: [${c.lat}, ${c.lng}]}))" 
-                style="background:#27272a; color:white; border:none; padding:10px; border-radius:8px; cursor:pointer; font-size:11px;">
-                🗺️ NAVIGATE
-              </button>
-              <button onclick="window.dispatchEvent(new CustomEvent('book-nav', {detail: [${c.lat}, ${c.lng}]}))" 
-                style="background:#10b981; color:white; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:bold; font-size:11px;">
-                ⚡ BOOK (₹11)
-              </button>
-            </div>
-          </div>
-        `);
-      clusterGroupRef.current.addLayer(marker);
-    });
+chargers.forEach((c) => {
+  // Use the logic: source 'db' is green (verified), 'api' is blue
+  const chargerIcon = c.source === 'db' ? greenIcon : blueIcon;
+
+  const marker = L.marker([c.lat, c.lng], { icon: chargerIcon });
+  
+  marker.bindPopup(`
+    <div style="background:#18181b; color:white; padding:14px; border-radius:16px; min-width:220px; border:1px solid #27272a; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);">
+      <div style="margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:10px; font-weight:800; color:${c.source === 'db' ? '#10b981' : '#3b82f6'}; text-transform:uppercase; letter-spacing:0.05em;">
+            ● ${c.source === 'db' ? 'Verified Station' : 'External Station'}
+          </span>
+        </div>
+        <h3 style="margin:6px 0; font-size:16px; font-weight:600; color:#fafafa;">${c.name || 'EV Station'}</h3>
+        <p style="margin:0; font-size:11px; color:#a1a1aa;">Available 24/7 • Fast Charging</p>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <button onclick="window.dispatchEvent(new CustomEvent('nav-only', {detail: [${c.lat}, ${c.lng}]}))" 
+          style="width:100%; background:#27272a; color:white; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:600; font-size:12px; display:flex; align-items:center; justify-content:center; gap:6px;">
+          🗺️ DIRECTIONS
+        </button>
+        
+        <button onclick="window.dispatchEvent(new CustomEvent('book-nav', {detail: [${c.lat}, ${c.lng}]}))" 
+          style="width:100%; background:#10b981; color:white; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:700; font-size:12px; display:flex; align-items:center; justify-content:center; gap:6px;">
+          ⚡ BOOK SESSION (₹11)
+        </button>
+      </div>
+    </div>
+  `, { 
+    className: 'clean-popup',
+    maxWidth: 300,
+    minWidth: 220
+  });
+
+  clusterGroupRef.current.addLayer(marker);
+});
 
     const handleNav = (e: any) => { setDestination(e.detail); mapRef.current?.closePopup(); };
     window.addEventListener('nav-only', handleNav);

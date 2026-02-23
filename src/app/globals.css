@@ -64,3 +64,32 @@
 .animate-float {
   animation: float 3s ease-in-out infinite;
 }
+
+/* Clean Cluster Styling */
+.custom-cluster {
+  width: 40px;
+  height: 40px;
+  background: rgba(16, 185, 129, 0.15); /* Emerald with low opacity */
+  border: 2px solid #10b981; /* Solid emerald border */
+  color: #10b981;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 12px;
+  backdrop-filter: blur(4px); /* Modern glass effect */
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+  transition: all 0.2s ease;
+}
+
+.custom-cluster:hover {
+  background: rgba(16, 185, 129, 0.3);
+  transform: scale(1.1);
+}
+
+/* Ensure the Leaflet wrapper doesn't add weird backgrounds */
+.marker-cluster-empty {
+  background: none !important;
+  border: none !important;
+}
