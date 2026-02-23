@@ -1,0 +1,54 @@
+Folder PATH listing for volume New Volume
+Volume serial number is D61A-D45A
+E:.
+¦   output.txt
+¦   
++---app
+¦   ¦   favicon.ico
+¦   ¦   globals.css
+¦   ¦   layout.tsx
+¦   ¦   page.tsx
+¦   ¦   
+¦   +---charging
+¦   ¦       page.tsx
+¦   ¦       
+¦   +---explore
+¦   ¦       page.tsx
+¦   ¦       
+¦   +---host
+¦   ¦       page.tsx
+¦   ¦       
+¦   +---login
+¦   ¦       page.tsx
+¦   ¦       
+¦   +---onboarding
+¦   ¦       page.tsx
+¦   ¦       
+¦   +---profile
+¦   ¦       page.tsx
+¦   ¦       
+¦   +---vehicle-details
+¦   ¦       page.tsx
+¦   ¦       
+¦   +---wallet
+¦           page.tsx
+¦           
++---components
+¦   ¦   AuthProvider.tsx
+¦   ¦   PaymentModal.tsx
+¦   ¦   
+¦   +---ui
+¦           BatteryCard.tsx
+¦           ChargerList.tsx
+¦           FilterChips.tsx
+¦           MapComponent.tsx
+¦           
++---context
+¦       VehicleContext.tsx
+¦       
++---data
+¦       ev-database.ts
+¦       
++---types
+        next-auth.d.ts
+        
