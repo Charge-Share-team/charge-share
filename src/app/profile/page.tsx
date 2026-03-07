@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
 import ProfileMap from '@/components/ui/ProfileMap';
+import LogoutButton from '@/components/LogoutButton';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -17,13 +18,12 @@ export default async function ProfilePage() {
   const { data: hostProfile } = await supabase
     .from('chargers')
     .select('*')
-    .eq('owner_id', user.id)  // ✅ Fixed: was 'host_id'
+    .eq('owner_id', user.id)
     .single();
 
   return (
     <main className="flex flex-col lg:flex-row h-screen w-full bg-black overflow-hidden">
 
-      {/* LEFT SIDE */}
       <div className="w-full lg:w-[450px] h-full overflow-y-auto border-r border-white/5 z-10 bg-black flex flex-col p-8">
         <div className="max-w-md mx-auto w-full">
           <h1 className="text-2xl font-black uppercase italic mb-2 text-white">Driver Profile</h1>
@@ -47,13 +47,11 @@ export default async function ProfilePage() {
             </div>
           </div>
 
-          <button className="mt-8 w-full border border-white/10 text-[10px] font-black uppercase py-4 rounded-2xl text-white hover:bg-white/5 transition-colors">
-            Log Out
-          </button>
+          {/* ✅ Fixed: real logout button */}
+          <LogoutButton />
         </div>
       </div>
 
-      {/* RIGHT SIDE: Map — ✅ Fixed via ProfileMap client wrapper (passes required props) */}
       <div className="hidden lg:block flex-1 h-full relative bg-zinc-950">
         <ProfileMap />
         <div className="absolute inset-0 opacity-20 pointer-events-none z-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-emerald-500/10 via-transparent to-transparent animate-pulse" />

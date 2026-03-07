@@ -12,16 +12,13 @@ export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
 
-  // Step 1: Request the 6-digit code from Supabase
   const handleGetOTP = async () => {
     if (!email.includes('@')) return alert('Please enter a valid email');
     setLoading(true);
 
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: {
-        shouldCreateUser: true,
-      },
+      options: { shouldCreateUser: true },
     });
 
     if (error) {
@@ -32,9 +29,8 @@ export default function LoginPage() {
     setLoading(false);
   };
 
-  // Step 2: Verify the 6-digit code
   const handleVerifyOTP = async (codeToVerify: string) => {
-    if (codeToVerify.length < 6) return;
+    if (codeToVerify.length < 8) return; // ✅ Fixed back to 8
     setLoading(true);
 
     const { error } = await supabase.auth.verifyOtp({
@@ -55,7 +51,6 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen bg-black text-white p-8 flex flex-col justify-center font-sans">
-      {/* Brand Header */}
       <div className="mb-12">
         <div className="w-12 h-12 bg-emerald-500 rounded-2xl mb-6 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.4)]">
           <span className="text-black text-2xl font-black italic">⚡</span>
@@ -99,20 +94,20 @@ export default function LoginPage() {
             <input
               type="text"
               inputMode="numeric"
-              maxLength={6}             // ✅ Fixed: was 8, Supabase sends 6-digit OTPs
-              placeholder="000000"
+              maxLength={8}  // ✅ Fixed back to 8
+              placeholder="00000000"
               className="w-full bg-transparent text-center text-4xl font-black text-emerald-500 outline-none tracking-[0.4em]"
               value={otpCode}
               onChange={(e) => {
                 const val = e.target.value.replace(/\D/g, '');
                 setOtpCode(val);
-                if (val.length === 6) handleVerifyOTP(val); // ✅ Fixed: was 8
+                if (val.length === 8) handleVerifyOTP(val); // ✅ Fixed back to 8
               }}
             />
           </div>
 
           <button
-            disabled={loading || otpCode.length < 6}
+            disabled={loading || otpCode.length < 8}
             onClick={() => handleVerifyOTP(otpCode)}
             className="w-full py-5 bg-emerald-500 text-black font-black uppercase text-xs tracking-[.3em] rounded-2xl disabled:opacity-50"
           >
