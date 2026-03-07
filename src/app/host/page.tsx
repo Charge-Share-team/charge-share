@@ -54,12 +54,12 @@ export default function HostDashboard() {
   const toggleVisibility = async (chargerId: number, currentStatus: boolean) => {
     const { error } = await supabase
       .from('chargers')
-      .update({ is_online: !currentStatus })
+      .update({ is_available: !currentStatus })
       .eq('id', chargerId);
     
     if (!error) {
       setMyChargers(prev => prev.map(c => 
-        c.id === chargerId ? { ...c, is_online: !currentStatus } : c
+        c.id === chargerId ? { ...c, is_available: !currentStatus } : c
       ));
     }
   };
@@ -111,7 +111,7 @@ export default function HostDashboard() {
             parking_photo_url: pkUrl,
             latitude: latitude, // AUTOMATICALLY FETCHED
             longitude: longitude, // AUTOMATICALLY FETCHED
-            is_online: true
+            is_available: true
           });
 
           if (error) throw error;
@@ -154,7 +154,7 @@ export default function HostDashboard() {
             <div className="grid grid-cols-2 gap-8 pt-8 border-t border-white/5">
               <div className="text-center">
                 <p className="text-zinc-500 text-[10px] font-bold uppercase mb-1">Live Units</p>
-                <p className="text-2xl font-black italic">{myChargers.filter(c => c.is_online).length}</p>
+                <p className="text-2xl font-black italic">{myChargers.filter(c => c.is_available).length}</p>
               </div>
               <div className="text-center">
                 <p className="text-zinc-500 text-[10px] font-bold uppercase mb-1">Total Energy</p>
@@ -179,14 +179,14 @@ export default function HostDashboard() {
                     </p>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className={`text-[9px] font-black uppercase tracking-widest ${charger.is_online ? 'text-emerald-500' : 'text-zinc-600'}`}>
-                      {charger.is_online ? "Active" : "Offline"}
+                    <span className={`text-[9px] font-black uppercase tracking-widest ${charger.is_available ? 'text-emerald-500' : 'text-zinc-600'}`}>
+                      {charger.is_available ? "Active" : "Offline"}
                     </span>
                     <button 
-                      onClick={() => toggleVisibility(charger.id, charger.is_online)}
-                      className={`w-14 h-7 rounded-full p-1 transition-all ${charger.is_online ? 'bg-emerald-500' : 'bg-zinc-800'}`}
+                      onClick={() => toggleVisibility(charger.id, charger.is_available)}
+                      className={`w-14 h-7 rounded-full p-1 transition-all ${charger.is_available ? 'bg-emerald-500' : 'bg-zinc-800'}`}
                     >
-                      <div className={`w-5 h-5 bg-white rounded-full transition-transform duration-300 ${charger.is_online ? 'translate-x-7' : 'translate-x-0'}`} />
+                      <div className={`w-5 h-5 bg-white rounded-full transition-transform duration-300 ${charger.is_available ? 'translate-x-7' : 'translate-x-0'}`} />
                     </button>
                   </div>
                 </div>

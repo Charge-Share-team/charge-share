@@ -9,10 +9,8 @@ import Link from 'next/link';
 import FinalPaymentModal from '@/components/FinalPaymentModal';
 import { createClient } from '@/utils/supabase/client';
 
-// --- STABLE MATH HELPER ---
-// Uses Haversine formula to calculate distance without needing Leaflet/Window objects
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371; // Earth's radius in KM
+  const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
   const a =
@@ -27,13 +25,11 @@ export default function Home() {
   const router = useRouter();
   const supabase = createClient();
 
-  // --- CONSTANTS ---
   const BATTERY_CAPACITY = 30;
   const MAX_RANGE = 325;
   const START_LEVEL = 21;
   const START_RANGE = 63;
 
-  // --- STATES ---
   const [chargingStatus, setChargingStatus] = useState<'IDLE' | 'CHARGING' | 'PAYING' | null>(null);
   const [liveKwh, setLiveKwh] = useState(0.0);
   const [batteryLevel, setBatteryLevel] = useState(START_LEVEL);
@@ -43,7 +39,9 @@ export default function Home() {
 
   const [nearbyStations, setNearbyStations] = useState<any[]>([]);
   const [userLocation, setUserLocation] = useState<{ lat: number, lng: number } | null>(null);
-  const userVehiclePlug = "Type 2";
+
+  // User's vehicle plug type — ideally comes from VehicleContext in a future pass
+  const userVehiclePlug = 'Type 2';
 
   // 1. INITIALIZATION & RECOVERY
   useEffect(() => {
@@ -61,45 +59,51 @@ export default function Home() {
     if (savedName) setStationName(savedName);
     if (savedRate) setStationRate(parseInt(savedRate));
 
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition((position) => {
-        setUserLocation({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        });
-      }, (err) => console.error("GPS Access Denied:", err));
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+        },
+        (err) => console.error('GPS Access Denied:', err)
+      );
     }
   }, []);
 
-  // 2. DATA FETCHING (RPC call with safe distance mapping)
+  // 2. FETCH NEARBY CHARGERS
   useEffect(() => {
     const fetchNearby = async () => {
       if (!userLocation) return;
 
-      const { data, error } = await supabase.rpc('nearby_chargers', {
-        user_lat: userLocation.lat,
-        user_long: userLocation.lng,
-        radius_meters: 25000
+      // ✅ Fixed: use nearby_chargers_bbox (always available, no PostGIS needed)
+      const { data, error } = await supabase.rpc('nearby_chargers_bbox', {
+        lat: userLocation.lat,
+        lng: userLocation.lng,
+        radius_km: 25,
       });
+
+      if (error) {
+        console.error('Supabase RPC Error:', error);
+        return;
+      }
 
       if (data) {
         const compatible = data
-          .filter((c: any) => c.charger_type === userVehiclePlug)
+          // ✅ Fixed: plug_types is an array, use .includes() instead of === 
+          .filter((c: any) => Array.isArray(c.plug_types)
+            ? c.plug_types.includes(userVehiclePlug)
+            : c.charger_type === userVehiclePlug
+          )
           .map((c: any) => {
-            // Safe parsing to prevent NaN
-            const cLat = parseFloat(c.latitude || c.lat);
-            const cLng = parseFloat(c.longitude || c.lng);
-
+            const cLat = parseFloat(c.latitude);
+            const cLng = parseFloat(c.longitude);
             if (!isNaN(cLat) && !isNaN(cLng)) {
               const dist = calculateDistance(userLocation.lat, userLocation.lng, cLat, cLng);
               return { ...c, distance: dist.toFixed(1) };
             }
-            return { ...c, distance: "0.0" };
+            return { ...c, distance: '0.0' };
           });
 
         setNearbyStations(compatible);
-      } else if (error) {
-        console.error("Supabase Error:", error);
       }
     };
 
@@ -116,7 +120,7 @@ export default function Home() {
     }
   }, [chargingStatus, liveKwh, batteryLevel, range]);
 
-  // 4. CHARGING LOGIC (Physics Ticker)
+  // 4. CHARGING LOGIC
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (chargingStatus === 'CHARGING') {
@@ -162,7 +166,7 @@ export default function Home() {
     <main className="min-h-screen bg-black flex flex-col items-center pb-32">
       <div className="w-full max-w-md px-6 pt-12">
 
-        {/* Header Section */}
+        {/* Header */}
         <div className="flex justify-between items-start mb-10">
           <div className="w-10" />
           <div className="text-center">
@@ -195,15 +199,10 @@ export default function Home() {
                   <ChargerList
                     items={nearbyStations}
                     onBook={(station: any) => {
-                      // 1. Extract values from the station object
                       const rate = station.price_per_kwh || 11;
-                      const name = station.name || "Unknown Station";
-
-                      // 2. Save to LocalStorage
+                      const name = station.name || 'Unknown Station';
                       localStorage.setItem('currentStationRate', rate.toString());
                       localStorage.setItem('currentStationName', name);
-
-                      // 3. Update States
                       setStationRate(rate);
                       setStationName(name);
                       setChargingStatus('CHARGING');
@@ -213,7 +212,6 @@ export default function Home() {
               </div>
             </div>
           ) : (
-            /* Active Charging View */
             <div className="bg-zinc-900 border border-emerald-500/30 p-8 rounded-[40px] shadow-[0_0_50px_rgba(16,185,129,0.15)] animate-in zoom-in-95">
               <div className="flex justify-between items-center mb-8">
                 <div>
@@ -261,7 +259,6 @@ export default function Home() {
         />
       )}
 
-      {/* Persistent Navigation Bar */}
       <nav className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-sm h-16 bg-zinc-900/80 backdrop-blur-xl border border-zinc-800/50 rounded-3xl flex items-center justify-around z-50">
         <Link href="/" className="flex flex-col items-center text-emerald-400 gap-1">
           <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full mb-1"></div>

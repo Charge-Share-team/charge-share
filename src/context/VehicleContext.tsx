@@ -5,37 +5,40 @@ const VehicleContext = createContext<any>(undefined);
 
 export function VehicleProvider({ children }: { children: React.ReactNode }) {
   const [userCars, setUserCars] = useState<any[]>([]);
-  const [selectedCarId, setSelectedCarId] = useState<string | null>(null);
+  const [selectedCar, setSelectedCarState] = useState<string>('nexon');
 
-  // Load from local storage on start
+  // Load from localStorage on start
   useEffect(() => {
     const saved = localStorage.getItem('user_garage');
+    const activeCar = localStorage.getItem('active_car');
     if (saved) {
       const parsed = JSON.parse(saved);
       setUserCars(parsed);
-      if (parsed.length > 0) setSelectedCarId(parsed[0].id);
+    }
+    if (activeCar) {
+      setSelectedCarState(activeCar);
     }
   }, []);
 
-  // Use the name 'setSelectedCar' so your buttons work!
   const setSelectedCar = (id: string) => {
-    setSelectedCarId(id);
+    setSelectedCarState(id);
     localStorage.setItem('active_car', id);
   };
 
-const addCar = (carObj: any) => {
-  const updated = [...userCars, { ...carObj, instanceId: Date.now() }];
-  setUserCars(updated);
-  setSelectedCarId(carObj.id);
-  localStorage.setItem('user_garage', JSON.stringify(updated));
-};
+  const addCar = (carObj: any) => {
+    const updated = [...userCars, { ...carObj, instanceId: Date.now() }];
+    setUserCars(updated);
+    setSelectedCarState(carObj.id);
+    localStorage.setItem('user_garage', JSON.stringify(updated));
+    localStorage.setItem('active_car', carObj.id);
+  };
 
   return (
-    <VehicleContext.Provider value={{ 
-      userCars, 
-      selectedCarId, 
-      setSelectedCar, // This fixes the function error
-      addCar 
+    <VehicleContext.Provider value={{
+      userCars,
+      selectedCar,   // ✅ fixed: was 'selectedCarId'
+      setSelectedCar,
+      addCar
     }}>
       {children}
     </VehicleContext.Provider>

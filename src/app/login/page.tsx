@@ -2,12 +2,12 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '../../utils/supabase/client'; 
+import { createClient } from '../../utils/supabase/client';
 
 export default function LoginPage() {
   const [step, setStep] = useState<'EMAIL' | 'OTP'>('EMAIL');
   const [email, setEmail] = useState('');
-  const [otpCode, setOtpCode] = useState(''); 
+  const [otpCode, setOtpCode] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const supabase = createClient();
@@ -16,11 +16,10 @@ export default function LoginPage() {
   const handleGetOTP = async () => {
     if (!email.includes('@')) return alert('Please enter a valid email');
     setLoading(true);
-    
+
     const { error } = await supabase.auth.signInWithOtp({
-      email: email,
+      email,
       options: {
-        // We remove emailRedirectTo to ensure Supabase uses the Token flow
         shouldCreateUser: true,
       },
     });
@@ -35,20 +34,22 @@ export default function LoginPage() {
 
   // Step 2: Verify the 6-digit code
   const handleVerifyOTP = async (codeToVerify: string) => {
+    if (codeToVerify.length < 6) return;
     setLoading(true);
+
     const { error } = await supabase.auth.verifyOtp({
       email,
       token: codeToVerify,
-      type: 'email', // Required for verifying numeric email tokens
+      type: 'email',
     });
 
     if (error) {
       alert(`Verification failed: ${error.message}`);
+      setOtpCode('');
       setLoading(false);
     } else {
-      // Success: Establish the session
       router.push('/');
-      router.refresh(); 
+      router.refresh();
     }
   };
 
@@ -68,18 +69,18 @@ export default function LoginPage() {
       </div>
 
       {step === 'EMAIL' ? (
-        /* EMAIL INPUT */
         <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
           <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-2xl focus-within:border-emerald-500 transition-all flex items-center gap-3">
-            <input 
-              type="email" 
+            <input
+              type="email"
               placeholder="Enter your Email"
               className="bg-transparent outline-none flex-1 font-mono tracking-wider text-lg"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleGetOTP()}
             />
           </div>
-          <button 
+          <button
             onClick={handleGetOTP}
             disabled={loading}
             className="w-full py-5 bg-white text-black font-black uppercase text-xs tracking-[.3em] rounded-2xl active:scale-95 transition-all disabled:opacity-50"
@@ -88,37 +89,46 @@ export default function LoginPage() {
           </button>
         </div>
       ) : (
-        /* OTP VERIFICATION */
         <div className="space-y-6 animate-in zoom-in duration-300">
           <div className="text-center">
             <p className="text-zinc-400 text-xs uppercase tracking-widest mb-2">Code sent to</p>
             <p className="text-emerald-500 font-mono text-sm">{email}</p>
           </div>
+
           <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-2xl focus-within:border-emerald-500 transition-all">
-            <input 
-               type="text" 
-               maxLength={8}
-               placeholder="00000000"
-               className="w-full bg-transparent text-center text-4xl font-black text-emerald-500 outline-none tracking-[0.4em]"
-               value={otpCode}
-               onChange={(e) => {
-                 const val = e.target.value.replace(/\D/g, ''); 
-                 setOtpCode(val);
-                 if (val.length === 8) handleVerifyOTP(val); 
-               }}
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}             // ✅ Fixed: was 8, Supabase sends 6-digit OTPs
+              placeholder="000000"
+              className="w-full bg-transparent text-center text-4xl font-black text-emerald-500 outline-none tracking-[0.4em]"
+              value={otpCode}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, '');
+                setOtpCode(val);
+                if (val.length === 6) handleVerifyOTP(val); // ✅ Fixed: was 8
+              }}
             />
           </div>
-          <button 
-            disabled={loading}
+
+          <button
+            disabled={loading || otpCode.length < 6}
             onClick={() => handleVerifyOTP(otpCode)}
             className="w-full py-5 bg-emerald-500 text-black font-black uppercase text-xs tracking-[.3em] rounded-2xl disabled:opacity-50"
           >
             {loading ? 'Verifying...' : 'Verify & Continue'}
           </button>
+
+          <button
+            onClick={() => { setStep('EMAIL'); setOtpCode(''); }}
+            className="w-full text-zinc-600 text-[9px] uppercase font-bold tracking-widest hover:text-zinc-400 transition-colors"
+          >
+            ← Change Email
+          </button>
         </div>
       )}
 
-      <button 
+      <button
         onClick={() => router.push('/')}
         className="mt-8 text-zinc-600 text-[9px] uppercase font-bold tracking-widest hover:text-zinc-400 transition-colors"
       >
