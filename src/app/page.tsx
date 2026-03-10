@@ -163,7 +163,7 @@ export default function Home() {
   if (chargingStatus === null) return <div className="min-h-screen bg-black" />;
 
   return (
-    <main className="min-h-screen bg-black flex flex-col items-center pb-32">
+    <main className="min-h-screen bg-black flex flex-col items-center pb-48">
       <div className="w-full max-w-md px-6 pt-12">
 
         {/* Header */}
@@ -241,7 +241,7 @@ export default function Home() {
           )}
         </div>
 
-        <button onClick={() => router.push('/explore')} className="w-full py-4 rounded-2xl bg-white text-black font-black text-xs uppercase tracking-widest mt-8 active:scale-95 transition-all">
+        <button onClick={() => router.push('/explore')} className="w-full py-4 rounded-2xl bg-white text-black font-black text-xs uppercase tracking-widest mt-8 mb-4 active:scale-95 transition-all">
           Open Map View
         </button>
       </div>

@@ -4,49 +4,53 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
+
 export const dynamic = 'force-dynamic';
+
+interface Toast { message: string; type: 'success' | 'error' | 'info'; }
+
 export default function HostDashboard() {
   const supabase = createClient();
   const router = useRouter();
-  
+
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
   const [myChargers, setMyChargers] = useState<any[]>([]);
-  
+  const [toast, setToast] = useState<Toast | null>(null); // ✅ replaces alert()
+
   const [newCharger, setNewCharger] = useState({
-    name: "",
-    connector: "Type 2",
-    customConnector: "",
-    capacity: "7.4",
-    price: "12"
+    name: '',
+    connector: 'Type 2',
+    customConnector: '',
+    capacity: '7.4',
+    price: '12',
   });
 
   const [photos, setPhotos] = useState<{ [key: string]: File | null }>({
-    charger: null,
-    plug: null,
-    parking: null
+    charger: null, plug: null, parking: null,
   });
+
+  // ✅ Toast helper — auto dismisses after 3.5s
+  const showToast = (message: string, type: Toast['type'] = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   const fetchMyChargers = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from('chargers')
       .select('*')
       .eq('owner_id', userId);
-    
-    if (error) console.error("Error fetching:", error.message);
+    if (error) console.error('Error fetching:', error.message);
     if (data) setMyChargers(data);
   }, [supabase]);
 
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push('/login');
-      } else {
-        setUser(user);
-        fetchMyChargers(user.id);
-      }
+      if (!user) { router.push('/login'); }
+      else { setUser(user); fetchMyChargers(user.id); }
     };
     checkUser();
   }, [router, supabase, fetchMyChargers]);
@@ -56,27 +60,27 @@ export default function HostDashboard() {
       .from('chargers')
       .update({ is_available: !currentStatus })
       .eq('id', chargerId);
-    
+
     if (!error) {
-      setMyChargers(prev => prev.map(c => 
+      setMyChargers(prev => prev.map(c =>
         c.id === chargerId ? { ...c, is_available: !currentStatus } : c
       ));
+      showToast(`Charger ${!currentStatus ? 'activated' : 'deactivated'}`, 'success');
+    } else {
+      showToast('Failed to update charger status', 'error');
     }
   };
 
   const handleRegister = async () => {
     if (!photos.charger || !photos.plug || !photos.parking) {
-      return alert("Missing Photos: Please upload all 3 required images.");
+      return showToast('Please upload all 3 required photos', 'error'); // ✅ no alert()
     }
-
-    // Check if browser supports Geolocation
     if (!navigator.geolocation) {
-      return alert("Geolocation is not supported by your browser.");
+      return showToast('Geolocation not supported by your browser', 'error');
     }
 
     setLoading(true);
 
-    // FETCHING LOCATION AUTOMATICALLY
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         try {
@@ -88,45 +92,49 @@ export default function HostDashboard() {
               .from('charger-images')
               .upload(`${path}/${fileName}`, file);
             if (error) throw error;
-            const { data: urlData } = supabase.storage.from('charger-images').getPublicUrl(data.path);
+            const { data: urlData } = supabase.storage
+              .from('charger-images')
+              .getPublicUrl(data.path);
             return urlData.publicUrl;
           };
 
           const [cUrl, pUrl, pkUrl] = await Promise.all([
             uploadPhoto(photos.charger!, 'units'),
             uploadPhoto(photos.plug!, 'plugs'),
-            uploadPhoto(photos.parking!, 'parking')
+            uploadPhoto(photos.parking!, 'parking'),
           ]);
 
-          const finalType = newCharger.connector === "Other" ? newCharger.customConnector : newCharger.connector;
+          const finalType = newCharger.connector === 'Other'
+            ? newCharger.customConnector
+            : newCharger.connector;
 
           const { error } = await supabase.from('chargers').insert({
             owner_id: user.id,
-            name: newCharger.name || "Home Station",
+            name: newCharger.name || 'Home Station',
             charger_type: finalType,
             capacity_kwh: parseFloat(newCharger.capacity),
             price_per_kwh: parseFloat(newCharger.price),
             charger_photo_url: cUrl,
             plug_photo_url: pUrl,
             parking_photo_url: pkUrl,
-            latitude: latitude, // AUTOMATICALLY FETCHED
-            longitude: longitude, // AUTOMATICALLY FETCHED
-            is_available: true
+            latitude,
+            longitude,
+            is_available: true,
           });
 
           if (error) throw error;
-          alert(`Success! Charger registered at ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+          showToast(`Charger registered at ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`, 'success'); // ✅
           setShowSetup(false);
           fetchMyChargers(user.id);
         } catch (err: any) {
-          alert("Registration Error: " + err.message);
+          showToast('Registration failed: ' + err.message, 'error'); // ✅
         } finally {
           setLoading(false);
         }
       },
-      (err) => {
+      () => {
         setLoading(false);
-        alert("Location Error: Please enable GPS/Location services to register a charger.");
+        showToast('Location error: Please enable GPS to register a charger', 'error'); // ✅
       },
       { enableHighAccuracy: true }
     );
@@ -135,14 +143,31 @@ export default function HostDashboard() {
   if (!user) return <div className="min-h-screen bg-[#050a14]" />;
 
   return (
-    <main className="min-h-screen bg-[#050a14] text-white p-6 pb-32">
+    <main className="min-h-screen bg-[#050a14] text-white p-6 pb-32 relative">
+
+      {/* ✅ Toast — replaces all alert() calls */}
+      {toast && (
+        <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 rounded-2xl text-sm font-bold shadow-2xl animate-in slide-in-from-top-4 duration-300 ${
+          toast.type === 'success' ? 'bg-emerald-500 text-black'
+          : toast.type === 'error' ? 'bg-red-500 text-white'
+          : 'bg-zinc-800 text-white border border-zinc-700'
+        }`}>
+          {toast.message}
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-10 pt-4">
         <div>
           <h1 className="text-3xl font-black italic uppercase tracking-tighter text-emerald-500">Host Mode</h1>
-          <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest">User: {user.email.split('@')[0]}</p>
+          <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest">
+            {user.email?.split('@')[0]}
+          </p>
         </div>
-        <button onClick={() => setShowSetup(!showSetup)} className="bg-emerald-500 text-black px-6 py-2 rounded-full text-xs font-black uppercase tracking-tighter">
-          {showSetup ? "Back to Dashboard" : "+ Add Charger"}
+        <button
+          onClick={() => setShowSetup(!showSetup)}
+          className="bg-emerald-500 text-black px-6 py-2 rounded-full text-xs font-black uppercase tracking-tighter"
+        >
+          {showSetup ? '← Dashboard' : '+ Add Charger'}
         </button>
       </div>
 
@@ -157,21 +182,23 @@ export default function HostDashboard() {
                 <p className="text-2xl font-black italic">{myChargers.filter(c => c.is_available).length}</p>
               </div>
               <div className="text-center">
-                <p className="text-zinc-500 text-[10px] font-bold uppercase mb-1">Total Energy</p>
-                <p className="text-2xl font-black italic text-emerald-400">0 <span className="text-xs">kWh</span></p>
+                <p className="text-zinc-500 text-[10px] font-bold uppercase mb-1">Total Chargers</p>
+                <p className="text-2xl font-black italic text-emerald-400">{myChargers.length}</p>
               </div>
             </div>
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-zinc-500 text-[10px] font-black uppercase tracking-widest pl-2">Manage Your Assets</h3>
+            <h3 className="text-zinc-500 text-[10px] font-black uppercase tracking-widest pl-2">
+              Manage Your Assets
+            </h3>
             {myChargers.length === 0 ? (
               <div className="p-16 border-2 border-dashed border-zinc-900 rounded-[40px] text-center text-zinc-700 font-bold uppercase text-[10px]">
-                No active chargers found
+                No chargers yet — add your first one
               </div>
             ) : (
               myChargers.map((charger) => (
-                <div key={charger.id} className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-[32px] flex justify-between items-center group hover:border-emerald-500/30 transition-all">
+                <div key={charger.id} className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-[32px] flex justify-between items-center hover:border-emerald-500/30 transition-all">
                   <div>
                     <p className="font-black italic uppercase text-lg leading-none mb-1">{charger.name}</p>
                     <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
@@ -180,9 +207,9 @@ export default function HostDashboard() {
                   </div>
                   <div className="flex items-center gap-4">
                     <span className={`text-[9px] font-black uppercase tracking-widest ${charger.is_available ? 'text-emerald-500' : 'text-zinc-600'}`}>
-                      {charger.is_available ? "Active" : "Offline"}
+                      {charger.is_available ? 'Active' : 'Offline'}
                     </span>
-                    <button 
+                    <button
                       onClick={() => toggleVisibility(charger.id, charger.is_available)}
                       className={`w-14 h-7 rounded-full p-1 transition-all ${charger.is_available ? 'bg-emerald-500' : 'bg-zinc-800'}`}
                     >
@@ -197,23 +224,41 @@ export default function HostDashboard() {
       ) : (
         <div className="space-y-6 max-w-lg mx-auto pb-10 animate-in slide-in-from-bottom-4 duration-500">
           <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-[40px] space-y-4">
-             <p className="text-[10px] font-black uppercase text-emerald-500 px-2">Technical Specs</p>
-             <input 
-              placeholder="Station Name"
-              className="w-full bg-black/50 border border-zinc-800 p-5 rounded-3xl text-sm outline-none"
-              onChange={(e) => setNewCharger({...newCharger, name: e.target.value})}
+            <p className="text-[10px] font-black uppercase text-emerald-500 px-2">Technical Specs</p>
+            <input
+              placeholder="Station Name (e.g. Home Garage)"
+              className="w-full bg-black/50 border border-zinc-800 p-5 rounded-3xl text-sm outline-none focus:border-emerald-500/50 transition-colors"
+              onChange={(e) => setNewCharger({ ...newCharger, name: e.target.value })}
             />
             <div className="grid grid-cols-2 gap-4">
-              <input type="number" placeholder="kW (e.g. 7.4)" className="bg-black/50 border border-zinc-800 p-5 rounded-3xl text-sm outline-none" onChange={(e) => setNewCharger({...newCharger, capacity: e.target.value})}/>
-              <input type="number" placeholder="Price/kWh" className="bg-black/50 border border-zinc-800 p-5 rounded-3xl text-sm text-emerald-500 font-bold outline-none" onChange={(e) => setNewCharger({...newCharger, price: e.target.value})}/>
+              <input
+                type="number"
+                placeholder="kW (e.g. 7.4)"
+                className="bg-black/50 border border-zinc-800 p-5 rounded-3xl text-sm outline-none focus:border-emerald-500/50 transition-colors"
+                onChange={(e) => setNewCharger({ ...newCharger, capacity: e.target.value })}
+              />
+              <input
+                type="number"
+                placeholder="₹ per kWh"
+                className="bg-black/50 border border-zinc-800 p-5 rounded-3xl text-sm text-emerald-500 font-bold outline-none focus:border-emerald-500/50 transition-colors"
+                onChange={(e) => setNewCharger({ ...newCharger, price: e.target.value })}
+              />
             </div>
-            <select className="w-full bg-black/50 border border-zinc-800 p-5 rounded-3xl text-sm outline-none" value={newCharger.connector} onChange={(e) => setNewCharger({...newCharger, connector: e.target.value})}>
+            <select
+              className="w-full bg-black/50 border border-zinc-800 p-5 rounded-3xl text-sm outline-none"
+              value={newCharger.connector}
+              onChange={(e) => setNewCharger({ ...newCharger, connector: e.target.value })}
+            >
               <option value="Type 2">Type 2 (AC)</option>
               <option value="CCS2">CCS2 (DC Fast)</option>
               <option value="Other">Other (Manual Entry)</option>
             </select>
-            {newCharger.connector === "Other" && (
-              <input placeholder="Enter Plug Type" className="w-full bg-emerald-500/10 border border-emerald-500/50 p-5 rounded-3xl text-sm text-emerald-400 font-bold outline-none" onChange={(e) => setNewCharger({...newCharger, customConnector: e.target.value})}/>
+            {newCharger.connector === 'Other' && (
+              <input
+                placeholder="Enter Plug Type"
+                className="w-full bg-emerald-500/10 border border-emerald-500/50 p-5 rounded-3xl text-sm text-emerald-400 font-bold outline-none"
+                onChange={(e) => setNewCharger({ ...newCharger, customConnector: e.target.value })}
+              />
             )}
           </div>
 
@@ -221,38 +266,44 @@ export default function HostDashboard() {
             <p className="text-[10px] font-black uppercase text-emerald-500 px-2 mb-2">Required Photos</p>
             {['charger', 'plug', 'parking'].map((key) => (
               <label key={key} className="flex flex-col cursor-pointer group">
-                <div className="flex justify-between items-center bg-black/40 border border-zinc-800 p-5 rounded-3xl group-hover:border-zinc-600 transition-all">
-                  <span className="text-[11px] font-black uppercase text-zinc-400 group-hover:text-white transition-colors">
-                    {key} Photo
+                <div className={`flex justify-between items-center border p-5 rounded-3xl transition-all ${
+                  photos[key as keyof typeof photos]
+                    ? 'border-emerald-500/40 bg-emerald-500/5'
+                    : 'border-zinc-800 bg-black/40 group-hover:border-zinc-600'
+                }`}>
+                  <span className="text-[11px] font-black uppercase text-zinc-400 group-hover:text-white transition-colors capitalize">
+                    {key} Photo {photos[key as keyof typeof photos] ? '✓' : '*'}
                   </span>
                   <span className="text-[10px] font-bold text-emerald-500/60 truncate max-w-[150px]">
-                    {photos[key as keyof typeof photos] ? (photos[key as keyof typeof photos] as File).name : 'Select File +'}
+                    {photos[key as keyof typeof photos]
+                      ? (photos[key as keyof typeof photos] as File).name
+                      : 'Select File +'}
                   </span>
                 </div>
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  className="hidden" 
-                  onChange={(e) => setPhotos({...photos, [key]: e.target.files?.[0] || null})}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => setPhotos({ ...photos, [key]: e.target.files?.[0] || null })}
                 />
               </label>
             ))}
           </div>
 
-          <button 
-            onClick={handleRegister} 
-            disabled={loading} 
+          <button
+            onClick={handleRegister}
+            disabled={loading}
             className="w-full bg-emerald-500 p-8 rounded-[40px] font-black italic uppercase text-black shadow-2xl shadow-emerald-500/20 active:scale-95 transition-all disabled:opacity-50"
           >
-            {loading ? "Capturing Location..." : "Publish & Fetch Location"}
+            {loading ? 'Capturing Location...' : 'Publish & Fetch Location'}
           </button>
         </div>
       )}
 
       <nav className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-xs h-16 bg-black/80 backdrop-blur-3xl border border-white/5 rounded-full flex items-center justify-around px-8 shadow-2xl z-50">
-        <Link href="/" className="text-zinc-600 text-[10px] font-black uppercase">Home</Link>
+        <Link href="/" className="text-zinc-600 text-[10px] font-black uppercase hover:text-white transition-colors">Home</Link>
         <button className="text-emerald-400 text-[10px] font-black uppercase">Host</button>
-        <Link href="/profile" className="text-zinc-600 text-[10px] font-black uppercase">Profile</Link>
+        <Link href="/profile" className="text-zinc-600 text-[10px] font-black uppercase hover:text-white transition-colors">Profile</Link>
       </nav>
     </main>
   );

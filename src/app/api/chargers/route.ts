@@ -1,7 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase Client
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -10,46 +9,56 @@ const supabase = createClient(
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export async function GET() {
-  // IMPORTANT: Ensure this matches the name in your .env.local file
-  const ocmKey = process.env.NEXT_PUBLIC_OCM_API_KEY;
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const lat    = parseFloat(searchParams.get('lat')    ?? '30.7333');
+  const lng    = parseFloat(searchParams.get('lng')    ?? '76.7794');
+  const radius = parseFloat(searchParams.get('radius') ?? '25');
 
+  // ── 1. Supabase local chargers via bbox RPC ──
+  let localChargers: any[] = [];
   try {
-    // 1. Fetch from YOUR Database (Supabase)
-    const { data: localChargers, error: dbError } = await supabase
-      .from('chargers') 
-      .select('*');
-
-    if (dbError) {
-      console.error("Supabase Error:", dbError.message);
-    }
-
-    // 2. Fetch from Open Charge Map
-    // We use a try-catch specifically for the fetch to prevent the whole API from crashing if OCM is down
-    let ocmData = [];
-    try {
-      const ocmUrl = `https://api.openchargemap.io/v3/poi/?output=json&countrycode=IN&maxresults=100&compact=true&verbose=false&key=${ocmKey}`;
-      const ocmRes = await fetch(ocmUrl, {
-        next: { revalidate: 0 } // Ensures Next.js doesn't cache a failed/empty response
-      });
-
-      if (ocmRes.ok) {
-        ocmData = await ocmRes.json();
-      } else {
-        console.error("OpenChargeMap API responded with error status:", ocmRes.status);
-      }
-    } catch (apiErr) {
-      console.error("External API Fetch Failed:", apiErr);
-    }
-
-    // 3. Return combined data
-    return NextResponse.json({
-      local: localChargers || [],
-      external: ocmData || []
+    const { data, error } = await supabase.rpc('nearby_chargers_bbox', {
+      lat,
+      lng,
+      radius_km: radius,
     });
-
-  } catch (error: any) {
-    console.error("Internal Server Error:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      console.error('RPC error, falling back to plain select:', error.message);
+      // Fallback: direct query with only safe columns (no is_available risk)
+      const { data: fallback, error: fbErr } = await supabase
+        .from('chargers')
+        .select('id, name, address, latitude, longitude, plug_types, power_kw, price_per_kwh, is_free, description')
+        .gte('latitude',  lat - radius / 111)
+        .lte('latitude',  lat + radius / 111)
+        .gte('longitude', lng - radius / 111)
+        .lte('longitude', lng + radius / 111);
+      if (fbErr) console.error('Fallback error:', fbErr.message);
+      else localChargers = fallback ?? [];
+    } else {
+      localChargers = data ?? [];
+    }
+  } catch (e: any) {
+    console.error('Supabase fetch threw:', e.message);
   }
+
+  // ── 2. Open Charge Map — scoped, fast timeout ──
+  let ocmData: any[] = [];
+  const ocmKey = process.env.NEXT_PUBLIC_OCM_API_KEY;
+  if (ocmKey) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 7000);
+      const url = `https://api.openchargemap.io/v3/poi/?output=json&latitude=${lat}&longitude=${lng}&distance=${radius}&distanceunit=KM&maxresults=60&compact=true&verbose=false&key=${ocmKey}`;
+      const res = await fetch(url, { signal: controller.signal });
+      clearTimeout(timer);
+      if (res.ok) ocmData = await res.json();
+      else console.error('OCM status:', res.status);
+    } catch (e: any) {
+      if (e.name !== 'AbortError') console.error('OCM fetch error:', e.message);
+      else console.warn('OCM timed out — skipping');
+    }
+  }
+
+  return NextResponse.json({ local: localChargers, external: ocmData });
 }
