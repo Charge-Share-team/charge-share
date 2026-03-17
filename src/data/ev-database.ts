@@ -4,23 +4,41 @@ export const EV_BRANDS = ["Tata", "MG", "Mahindra", "Hyundai", "Maruti Suzuki"];
 
 export const EV_MODELS: Record<string, any> = {
   Tata: [
-    { id: "nexon-ev", name: "Nexon EV", charger: "CCS2", battery: "45kWh" },
-    { id: "punch-ev", name: "Punch EV", charger: "CCS2", battery: "35kWh" },
-    { id: "curvv-ev", name: "Curvv EV", charger: "CCS2", battery: "55kWh" },
+    { id: "nexon-ev", name: "Nexon.ev", charger: "CCS2", battery: "45kWh" },
+    { id: "punch-ev", name: "Punch.ev", charger: "CCS2", battery: "35kWh" },
+    { id: "curvv-ev", name: "Curvv.ev", charger: "CCS2", battery: "55kWh" },
+    { id: "harrier ev", name: "Harrier EV", charger: "CCS2", battery: "75kWh" },
+    { id: "tiago", name: "Tiago.ev", charger: "CCS2", battery: "255kWh" },
+    { id: "tigor", name: "Tigor.ev", charger: "CCS2", battery: "25kWh" },
   ],
   MG: [
     { id: "windsor-ev", name: "Windsor EV", charger: "CCS2", battery: "38kWh" },
     { id: "comet-ev", name: "Comet EV", charger: "Type 2", battery: "17.3kWh" },
+    { id: "cyberster", name: "Cyberster", charger: "Type 2", battery: "77kWh" },
+     { id: "M9", name: "M9 MPV", charger: "Type 2", battery: "90kWh" },
   ],
   Mahindra: [
-    { id: "xuv 7XO-ev", name: "XUV 7XO.ev", charger: "CCS2", battery: "80kWh" },
+    { id: "xuv 7XO-ev", name: "XUV 7XO.ev", charger: "CCS2", battery: "79kWh" },
+    { id: "xev 9s", name: "XEV 9S", charger: "CCS2", battery: "79kWh" },
+    { id: "xev 9E", name: "XEV 9E", charger: "CCS2", battery: "79kWh" },
+    { id: "be 6e", name: "BE 6E", charger: "CCS2", battery: "79kWh" },
+    { id: "xuv 4OO", name: "XUV 4OO ", charger: "CCS2", battery: "39kWh" },
   ],
   Hyundai: [
     { id: "creta-ev", name: "Creta EV", charger: "CCS2", battery: "45kWh" },
+    { id: "ioniq", name: "IONIQ 5", charger: "CCS2", battery: "72kWh" },
+    { id: "kona electric", name: "Kona Electric", charger: "CCS2", battery: "39kWh" },
   ],
-  "Maruti Suzuki": [
+   Suzuki: [
     { id: "evx", name: "eVX", charger: "CCS2", battery: "60kWh" },
+  ],
+   BYD: [
+    { id: "seal", name: "Seal", charger: "CCS2", battery: "82kWh" },
+    { id: "atto 3", name: "Atto 3", charger: "CCS2", battery: "60kWh" },
+    { id: "m6", name: "M6", charger: "CCS2", battery: "71kWh" },
+    { id: "e6", name: "E6", charger: "CCS2", battery: "71kWh" },
   ]
+  
 };
 
 // Add this below your EV_MODELS export

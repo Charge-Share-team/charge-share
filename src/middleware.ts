@@ -1,6 +1,9 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// Routes that require a real (non-guest) authenticated session
+const PROTECTED_ROUTES = ['/profile', '/host', '/wallet']
+
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -25,8 +28,21 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Refresh session — this is what fixes session: null
-  await supabase.auth.getUser()
+  // Refresh session cookie
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const pathname = request.nextUrl.pathname
+
+  // If hitting a protected route without a session → send to login
+  if (!user && PROTECTED_ROUTES.some(r => pathname.startsWith(r))) {
+    const loginUrl = request.nextUrl.clone()
+    loginUrl.pathname = '/login'
+    loginUrl.searchParams.set('next', pathname)
+    return NextResponse.redirect(loginUrl)
+  }
+
+  // If authenticated user hits /login or /onboarding → let them through
+  // (onboarding handles its own redirect once complete)
 
   return supabaseResponse
 }

@@ -1,22 +1,22 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { createClient } from '@/utils/supabase/client';
+import { useAuth } from '@/components/AuthProvider';
 
-export default function LogoutButton() {
-  const router = useRouter();
-  const supabase = createClient();
+export default function LogoutButton({ className }: { className?: string }) {
+  const { logout } = useAuth();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push('/login');
-    router.refresh();
+    await logout();
+    window.location.href = '/login';
   };
 
   return (
     <button
       onClick={handleLogout}
-      className="mt-8 w-full border border-white/10 text-[10px] font-black uppercase py-4 rounded-2xl text-white hover:bg-white/5 transition-colors"
+      className={
+        className ??
+        'mt-8 w-full border border-white/10 text-[10px] font-black uppercase py-4 rounded-2xl text-white hover:bg-white/5 transition-colors'
+      }
     >
       Log Out
     </button>
