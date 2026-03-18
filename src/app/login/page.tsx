@@ -25,7 +25,6 @@ function GridBg() {
   );
 }
 
-// ─── 3-way mode selector ──────────────────────────────────────────────────
 type Mode = 'login' | 'register' | 'guest';
 
 function ModePills({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {
@@ -39,19 +38,13 @@ function ModePills({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void
     <div className="relative flex bg-zinc-900 border border-zinc-800 rounded-2xl p-1 mb-7">
       <div
         className="absolute top-1 bottom-1 rounded-xl bg-zinc-800 transition-all duration-300 ease-out"
-        style={{
-          width: `calc(33.333% - 2.67px)`,
-          left: `calc(${idx} * 33.333% + 4px)`,
-        }}
+        style={{ width: `calc(33.333% - 2.67px)`, left: `calc(${idx} * 33.333% + 4px)` }}
       />
       {pills.map(p => (
-        <button
-          key={p.id}
-          onClick={() => onChange(p.id)}
+        <button key={p.id} onClick={() => onChange(p.id)}
           className={`relative z-10 flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest transition-colors duration-200 ${
             mode === p.id ? 'text-white' : 'text-zinc-600 hover:text-zinc-400'
-          }`}
-        >
+          }`}>
           {p.label}
         </button>
       ))}
@@ -59,10 +52,7 @@ function ModePills({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void
   );
 }
 
-// ─── input field ─────────────────────────────────────────────────────────
-function Field({
-  label, type = 'text', value, onChange, placeholder, onKeyDown, autoFocus,
-}: {
+function Field({ label, type = 'text', value, onChange, placeholder, onKeyDown, autoFocus }: {
   label: string; type?: string; value: string;
   onChange: (v: string) => void; placeholder?: string;
   onKeyDown?: (e: React.KeyboardEvent) => void; autoFocus?: boolean;
@@ -85,11 +75,8 @@ function Field({
           style={isPass ? { paddingRight: '64px' } : {}}
         />
         {isPass && (
-          <button
-            type="button"
-            onClick={() => setShow(s => !s)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-600 text-[9px] font-black uppercase tracking-wider hover:text-zinc-300 transition-colors"
-          >
+          <button type="button" onClick={() => setShow(s => !s)}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-600 text-[9px] font-black uppercase tracking-wider hover:text-zinc-300 transition-colors">
             {show ? 'Hide' : 'Show'}
           </button>
         )}
@@ -98,7 +85,6 @@ function Field({
   );
 }
 
-// ─── 8-digit OTP boxes ────────────────────────────────────────────────────
 function OtpBoxes({ otp, onChange, onKeyDown }: {
   otp: string[];
   onChange: (idx: number, val: string) => void;
@@ -107,15 +93,10 @@ function OtpBoxes({ otp, onChange, onKeyDown }: {
   return (
     <div className="flex gap-1.5 justify-between">
       {otp.map((d, i) => (
-        <input
-          key={i}
-          id={`otp-${i}`}
-          value={d}
+        <input key={i} id={`otp-${i}`} value={d}
           onChange={e => onChange(i, e.target.value)}
           onKeyDown={e => onKeyDown(i, e)}
-          maxLength={1}
-          inputMode="numeric"
-          suppressHydrationWarning
+          maxLength={1} inputMode="numeric" suppressHydrationWarning
           className="w-full aspect-square text-center text-base font-black text-white bg-zinc-900 border-2 border-zinc-800 rounded-xl focus:outline-none focus:border-emerald-500 transition-colors"
         />
       ))}
@@ -123,7 +104,6 @@ function OtpBoxes({ otp, onChange, onKeyDown }: {
   );
 }
 
-// ─── error line ───────────────────────────────────────────────────────────
 function Err({ msg }: { msg: string }) {
   if (!msg) return null;
   return (
@@ -133,61 +113,60 @@ function Err({ msg }: { msg: string }) {
   );
 }
 
-// ─── primary CTA button ───────────────────────────────────────────────────
 function PrimaryBtn({ onClick, disabled, children }: {
   onClick: () => void; disabled?: boolean; children: React.ReactNode;
 }) {
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className="w-full py-4 bg-emerald-500 text-black font-black uppercase text-xs tracking-widest rounded-2xl active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-    >
+    <button onClick={onClick} disabled={disabled}
+      className="w-full py-4 bg-emerald-500 text-black font-black uppercase text-xs tracking-widest rounded-2xl active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
       {children}
     </button>
   );
 }
 
-// ─── ghost button ─────────────────────────────────────────────────────────
 function GhostBtn({ onClick, disabled, children }: {
   onClick: () => void; disabled?: boolean; children: React.ReactNode;
 }) {
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className="w-full py-3 text-zinc-600 font-black uppercase text-[9px] tracking-widest hover:text-zinc-400 transition-colors disabled:opacity-40"
-    >
+    <button onClick={onClick} disabled={disabled}
+      className="w-full py-3 text-zinc-600 font-black uppercase text-[9px] tracking-widest hover:text-zinc-400 transition-colors disabled:opacity-40">
       {children}
     </button>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextParam = searchParams.get('next') || '';
-  // Only honour ?next for wallet/profile — never /host or unknown paths
   const nextPath = ['/wallet', '/profile'].includes(nextParam) ? nextParam : '/';
   const { continueAsGuest, user, loading: authLoading } = useAuth();
   const supabase = createClient();
 
   const [mode, setMode]           = useState<Mode>('login');
-  const [step, setStep]           = useState<'form' | 'otp' | 'setpass'>('form');
+  // ── FIX: only two steps now — 'form' and 'otp'. No 'setpass' step.
+  // Password is set in onboarding, not here. This removes the duplicate.
+  const [step, setStep]           = useState<'form' | 'otp'>('form');
   const [email, setEmail]         = useState('');
   const [password, setPassword]   = useState('');
-  const [confirm, setConfirm]     = useState('');
   const [otp, setOtp]             = useState(Array(8).fill(''));
-  const [verifiedUid, setVerifiedUid] = useState('');
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState('');
   const [countdown, setCountdown] = useState(0);
 
-  // already logged in → bypass
+  // ── FIX: use a flag to block the useEffect redirect during OTP flow
+  // Without this flag, when verifyOtp sets the session and user becomes
+  // non-null, the useEffect fires router.replace(nextPath) before
+  // goAfterAuth can check onboarding_complete, skipping onboarding.
+  const [handlingOtp, setHandlingOtp] = useState(false);
+
   useEffect(() => {
-    if (!authLoading && user) router.replace(nextPath);
-  }, [user, authLoading]);
+    // Only redirect if we're NOT in the middle of OTP verification
+    if (!authLoading && user && !handlingOtp) {
+      router.replace(nextPath);
+    }
+  }, [user, authLoading, handlingOtp]);
 
   useEffect(() => {
     if (countdown <= 0) return;
@@ -196,13 +175,13 @@ function LoginContent() {
   }, [countdown]);
 
   const clearForm = () => {
-    setEmail(''); setPassword(''); setConfirm('');
+    setEmail(''); setPassword('');
     setOtp(Array(8).fill('')); setError(''); setStep('form');
+    setHandlingOtp(false);
   };
 
   const switchMode = (m: Mode) => { setMode(m); clearForm(); };
 
-  // ── OTP input helpers ──────────────────────────────────────────────────
   const handleOtpChange = (idx: number, val: string) => {
     if (val.length > 1) {
       const digits = val.replace(/\D/g, '').slice(0, 8).split('');
@@ -217,12 +196,13 @@ function LoginContent() {
     setOtp(next);
     if (val && idx < 7) document.getElementById(`otp-${idx + 1}`)?.focus();
   };
+
   const handleOtpKey = (idx: number, e: React.KeyboardEvent) => {
     if (e.key === 'Backspace' && !otp[idx] && idx > 0)
       document.getElementById(`otp-${idx - 1}`)?.focus();
   };
 
-  // ── LOGIN with email + password ────────────────────────────────────────
+  // ── LOGIN with email + password ──────────────────────────────────────
   const handleLogin = async () => {
     if (!email.trim()) return setError('Enter your email.');
     if (!password)     return setError('Enter your password.');
@@ -241,7 +221,7 @@ function LoginContent() {
     router.refresh();
   };
 
-  // ── REGISTER step 1: send OTP ──────────────────────────────────────────
+  // ── REGISTER step 1: send OTP ────────────────────────────────────────
   const handleSendOtp = async () => {
     if (!email.trim()) return setError('Enter your email address.');
     setLoading(true); setError('');
@@ -258,11 +238,14 @@ function LoginContent() {
     setOtp(Array(8).fill(''));
   };
 
-  // ── REGISTER step 2: verify OTP ───────────────────────────────────────
+  // ── REGISTER step 2: verify OTP → go to onboarding ──────────────────
   const handleVerifyOtp = async () => {
     const code = otp.join('');
     if (code.length < 8) return setError('Enter the full 8-digit code.');
     setLoading(true); setError('');
+
+    // Block the useEffect redirect while we handle this
+    setHandlingOtp(true);
 
     const { data, error: err } = await supabase.auth.verifyOtp({
       email: email.trim().toLowerCase(),
@@ -271,48 +254,36 @@ function LoginContent() {
 
     if (err) {
       setLoading(false);
+      setHandlingOtp(false);
       return setError('Invalid or expired code. Try again.');
     }
 
+    // Write session to cookies so middleware picks it up
     if (data.session) {
       await supabase.auth.setSession({
         access_token: data.session.access_token,
         refresh_token: data.session.refresh_token,
       });
-      setVerifiedUid(data.session.user.id);
     }
 
-    setLoading(false);
-    setStep('setpass');
-    setPassword(''); setConfirm('');
-  };
+    const uid = data.session?.user?.id || data.user?.id;
 
-  // ── REGISTER step 3: set password ─────────────────────────────────────
-  const handleSetPassword = async () => {
-    if (password.length < 8) return setError('Password must be at least 8 characters.');
-    if (password !== confirm)  return setError('Passwords do not match.');
-    setLoading(true); setError('');
-
-    const { error: err } = await supabase.auth.updateUser({ password });
-    setLoading(false);
-    if (err) return setError(err.message);
-
-    await goAfterAuth(verifiedUid);
-  };
-
-  const handleSkipPassword = () => goAfterAuth(verifiedUid);
-
-  const goAfterAuth = async (uid: string) => {
+    // Check if onboarding is already complete
     const { data: profile } = await supabase
-      .from('profiles').select('onboarding_complete').eq('id', uid).single();
+      .from('profiles')
+      .select('onboarding_complete')
+      .eq('id', uid)
+      .single();
+
+    setLoading(false);
+    // Keep handlingOtp true until after navigation
     router.refresh();
     router.replace(!profile?.onboarding_complete ? '/onboarding' : nextPath);
   };
 
-  // ── GUEST ──────────────────────────────────────────────────────────────
+  // ── GUEST ────────────────────────────────────────────────────────────
   const handleGuest = () => { continueAsGuest(); router.replace('/'); };
 
-  // ─────────────────────────────────────────────────────────────────────
   if (authLoading) return <div className="min-h-screen bg-black" />;
 
   return (
@@ -339,10 +310,9 @@ function LoginContent() {
         <div className="rounded-[28px] p-5 border"
           style={{ background: 'rgba(9,9,11,0.9)', backdropFilter: 'blur(20px)', borderColor: 'rgba(255,255,255,0.06)' }}>
 
-          {/* Mode pills — only on form steps */}
           {step === 'form' && <ModePills mode={mode} onChange={switchMode} />}
 
-          {/* ════ LOGIN ════ */}
+          {/* ══ LOGIN ══ */}
           {mode === 'login' && step === 'form' && (
             <div className="space-y-4 animate-in fade-in duration-300">
               <div className="mb-2">
@@ -375,7 +345,7 @@ function LoginContent() {
             </div>
           )}
 
-          {/* ════ REGISTER: email ════ */}
+          {/* ══ REGISTER: email ══ */}
           {mode === 'register' && step === 'form' && (
             <div className="space-y-4 animate-in fade-in duration-300">
               <div className="mb-2">
@@ -403,10 +373,10 @@ function LoginContent() {
             </div>
           )}
 
-          {/* ════ REGISTER: OTP ════ */}
+          {/* ══ REGISTER: OTP ══ */}
           {mode === 'register' && step === 'otp' && (
             <div className="space-y-5 animate-in fade-in duration-300">
-              <button onClick={() => { setStep('form'); setError(''); setOtp(Array(8).fill('')); }}
+              <button onClick={() => { setStep('form'); setError(''); setOtp(Array(8).fill('')); setHandlingOtp(false); }}
                 className="text-zinc-600 text-[9px] font-black uppercase tracking-widest hover:text-white transition-colors">
                 ← Back
               </button>
@@ -422,67 +392,20 @@ function LoginContent() {
 
               <Err msg={error} />
               <PrimaryBtn onClick={handleVerifyOtp} disabled={loading}>
-                {loading ? 'Verifying...' : 'Verify Code →'}
+                {loading ? 'Verifying...' : 'Verify & Continue →'}
               </PrimaryBtn>
               <GhostBtn onClick={countdown > 0 ? () => {} : handleSendOtp} disabled={countdown > 0}>
                 {countdown > 0 ? `Resend in ${countdown}s` : 'Resend Code'}
               </GhostBtn>
+
+              {/* Clear hint about what happens next */}
+              <p className="text-zinc-700 text-[8px] font-bold text-center">
+                After verification you'll set up your profile
+              </p>
             </div>
           )}
 
-          {/* ════ REGISTER: set password ════ */}
-          {mode === 'register' && step === 'setpass' && (
-            <div className="space-y-4 animate-in fade-in duration-300">
-              {/* step dots */}
-              <div className="flex gap-1.5 justify-center mb-1">
-                {[0, 1, 2].map(i => (
-                  <div key={i} className={`h-1 rounded-full transition-all duration-300 ${
-                    i === 1 ? 'w-5 bg-emerald-500' : i < 1 ? 'w-2 bg-zinc-700' : 'w-2 bg-zinc-800'
-                  }`} />
-                ))}
-              </div>
-
-              <div>
-                <h2 className="text-white font-black italic uppercase text-lg tracking-tight">Set a password</h2>
-                <p className="text-zinc-600 text-[9px] font-bold mt-0.5">
-                  Skip OTP next time — sign in directly with email + password.
-                </p>
-              </div>
-
-              <Field label="New Password" type="password" value={password}
-                onChange={v => { setPassword(v); setError(''); }}
-                placeholder="Min. 8 characters" autoFocus />
-
-              <Field label="Confirm Password" type="password" value={confirm}
-                onChange={v => { setConfirm(v); setError(''); }}
-                onKeyDown={e => e.key === 'Enter' && handleSetPassword()}
-                placeholder="Re-enter password" />
-
-              {/* strength */}
-              {password.length > 0 && (
-                <div className="flex gap-1 items-center">
-                  {[3, 6, 9, 12].map((n, i) => (
-                    <div key={i} className={`flex-1 h-0.5 rounded-full transition-all ${
-                      password.length >= n
-                        ? ['bg-red-500','bg-yellow-500','bg-emerald-400','bg-emerald-500'][i]
-                        : 'bg-zinc-800'
-                    }`} />
-                  ))}
-                  <span className="text-zinc-600 text-[8px] font-bold ml-1 w-10 flex-shrink-0">
-                    {password.length < 4 ? 'Weak' : password.length < 8 ? 'Fair' : password.length < 12 ? 'Good' : 'Strong'}
-                  </span>
-                </div>
-              )}
-
-              <Err msg={error} />
-              <PrimaryBtn onClick={handleSetPassword} disabled={loading}>
-                {loading ? 'Saving...' : 'Set Password & Continue →'}
-              </PrimaryBtn>
-              <GhostBtn onClick={handleSkipPassword}>Skip for now</GhostBtn>
-            </div>
-          )}
-
-          {/* ════ GUEST ════ */}
+          {/* ══ GUEST ══ */}
           {mode === 'guest' && step === 'form' && (
             <div className="space-y-5 animate-in fade-in duration-300">
               <div className="mb-1">
