@@ -90,14 +90,24 @@ export default function HostPage() {
   }, [user]);
 
   // ── Enrich a session row with driver + charger info ─────────────────────
+  // FIX: fallback chain — full_name → mobile → last 8 of user ID
   const enrichRequest = async (req: any): Promise<SessionRequest> => {
     const [{ data: profile }, { data: charger }] = await Promise.all([
-      supabase.from('profiles').select('full_name, vehicle_reg_number').eq('id', req.driver_id).single(),
+      supabase.from('profiles')
+        .select('full_name, vehicle_reg_number, mobile_number')
+        .eq('id', req.driver_id)
+        .single(),
       supabase.from('chargers').select('name').eq('id', req.charger_id).single(),
     ]);
+
+    const driverName =
+      profile?.full_name?.trim() ||
+      (profile?.mobile_number ? `+91 ${profile.mobile_number}` : null) ||
+      `Driver …${req.driver_id.slice(-8)}`;
+
     return {
       ...req,
-      driver_name: profile?.full_name || 'Unknown Driver',
+      driver_name: driverName,
       vehicle_reg: profile?.vehicle_reg_number || null,
       charger_name: charger?.name || 'Your Charger',
     };
@@ -370,7 +380,6 @@ export default function HostPage() {
         {tab === 'requests' && (
           <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
-            {/* Auto-approve toggle */}
             <div className="bg-zinc-900 border border-zinc-800 p-4 rounded-[24px] flex justify-between items-center">
               <div>
                 <p className="text-white text-sm font-black italic uppercase">Auto-Approve</p>
@@ -458,13 +467,11 @@ export default function HostPage() {
 
                 return (
                   <div key={req.id} className="bg-zinc-900 border border-zinc-800 p-5 rounded-[28px] space-y-4">
-
-                    {/* Status badge + driver */}
                     <div className="flex justify-between items-start">
                       <div>
                         <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[8px] font-black uppercase tracking-widest mb-2 ${bg}`}>
-                          <span className={`relative flex h-1.5 w-1.5`}>
-                            {req.status === 'active' && <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400`} />}
+                          <span className="relative flex h-1.5 w-1.5">
+                            {req.status === 'active' && <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-emerald-400" />}
                             <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${req.status === 'active' ? 'bg-emerald-500' : 'bg-blue-500'}`} />
                           </span>
                           <span className={color}>{label}</span>
@@ -477,7 +484,6 @@ export default function HostPage() {
                       <div className="w-10 h-10 bg-zinc-800 rounded-2xl flex items-center justify-center text-lg">🚗</div>
                     </div>
 
-                    {/* Session details */}
                     <div className="bg-zinc-800/50 rounded-2xl p-3 space-y-2">
                       {[
                         ['Charger', req.charger_name || '–'],
@@ -492,7 +498,6 @@ export default function HostPage() {
                       ))}
                     </div>
 
-                    {/* View session + force stop */}
                     <div className="grid grid-cols-2 gap-3">
                       <button
                         onClick={() => router.push(`/session/${req.id}`)}

@@ -7,10 +7,8 @@ import { useAuth } from '@/components/AuthProvider';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-// ── Lazy-load RoutingControl (uses leaflet-routing-machine, no SSR) ─────────
 const RoutingControl = dynamic(() => import('@/components/ui/RoutingControl'), { ssr: false });
 
-// ── Types ────────────────────────────────────────────────────────────────────
 type Status = 'pending' | 'approved' | 'en_route' | 'active' | 'completed' | 'denied' | 'cancelled';
 
 interface SessionData {
@@ -37,49 +35,32 @@ interface ChargerData {
   longitude: number;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function fmt(secs: number) {
   const m = Math.floor(secs / 60);
   const s = secs % 60;
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-function fmtDist(metres: number) {
-  if (metres < 1000) return `${Math.round(metres)} m`;
-  return `${(metres / 1000).toFixed(1)} km`;
-}
-
 // ── Navigation Map ────────────────────────────────────────────────────────────
 function NavigationMap({
-  charger,
-  session,
-  onArrived,
+  charger, session, onArrived,
 }: {
-  charger: ChargerData;
-  session: SessionData;
-  onArrived: () => Promise<void>;
+  charger: ChargerData; session: SessionData; onArrived: () => Promise<void>;
 }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
   const didFlyRef = useRef(false);
-
   const [userPos, setUserPos] = useState<[number, number] | null>(null);
   const [arrivedLoading, setArrivedLoading] = useState(false);
-
   const dest: [number, number] = [charger.latitude, charger.longitude];
 
-  // ── Init map ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
     const map = L.map(mapContainerRef.current, {
-      center: dest,
-      zoom: 14,
-      maxZoom: 18,
-      minZoom: 3,
-      zoomControl: false,
-      attributionControl: false,
+      center: dest, zoom: 14, maxZoom: 18, minZoom: 3,
+      zoomControl: false, attributionControl: false,
     });
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -88,12 +69,11 @@ function NavigationMap({
 
     mapRef.current = map;
 
-    // Inject styles once
     if (!document.getElementById('cs-nav-styles')) {
       const s = document.createElement('style');
       s.id = 'cs-nav-styles';
       s.textContent = `
-        .cs-user-dot{width:18px;height:18px;background:#3b82f6;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 5px rgba(59,130,246,.25),0 0 0 0 rgba(59,130,246,.4);animation:cs-loc-pulse 2s infinite;}
+        .cs-user-dot{width:18px;height:18px;background:#3b82f6;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 5px rgba(59,130,246,.25);animation:cs-loc-pulse 2s infinite;}
         @keyframes cs-loc-pulse{0%{box-shadow:0 0 0 4px rgba(59,130,246,.3);}70%{box-shadow:0 0 0 12px rgba(59,130,246,0);}100%{box-shadow:0 0 0 4px rgba(59,130,246,.3);}}
         .cs-dest-wrap{display:flex;flex-direction:column;align-items:center;}
         .cs-dest-circle{width:40px;height:40px;background:#10b981;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 4px rgba(16,185,129,.3),0 6px 20px rgba(16,185,129,.5);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;}
@@ -106,12 +86,10 @@ function NavigationMap({
       document.head.appendChild(s);
     }
 
-    // Destination marker
     const destIcon = L.divIcon({
       className: '',
       html: `<div class="cs-dest-wrap"><div class="cs-dest-circle">⚡</div><div class="cs-dest-stem"></div></div>`,
-      iconSize: [40, 50],
-      iconAnchor: [20, 50],
+      iconSize: [40, 50], iconAnchor: [20, 50],
     });
     L.marker(dest, { icon: destIcon })
       .bindPopup(`
@@ -125,31 +103,25 @@ function NavigationMap({
           </div>
         </div>
       `, { className: 'clean-popup', maxWidth: 260 })
-      .addTo(map)
-      .openPopup();
+      .addTo(map).openPopup();
 
-    // User location icon
     const userIcon = L.divIcon({
       className: '', html: `<div class="cs-user-dot"></div>`,
       iconSize: [18, 18], iconAnchor: [9, 9],
     });
 
-    // GPS watch
     const wid = navigator.geolocation.watchPosition(
       (pos) => {
         const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude];
         setUserPos(coords);
-
         if (!userMarkerRef.current) {
           userMarkerRef.current = L.marker(coords, { icon: userIcon, zIndexOffset: 1000 }).addTo(map);
         } else {
           userMarkerRef.current.setLatLng(coords);
         }
-
         if (!didFlyRef.current) {
           didFlyRef.current = true;
-          const bounds = L.latLngBounds([coords, dest]);
-          map.fitBounds(bounds, { padding: [90, 90], animate: true, duration: 1.2 });
+          map.fitBounds(L.latLngBounds([coords, dest]), { padding: [90, 90], animate: true, duration: 1.2 });
         }
       },
       (err) => console.warn('GPS:', err.message),
@@ -167,30 +139,19 @@ function NavigationMap({
 
   const reCentre = () => {
     if (!mapRef.current) return;
-    const bounds = userPos
-      ? L.latLngBounds([userPos, dest])
-      : L.latLngBounds([dest, dest]);
+    const bounds = userPos ? L.latLngBounds([userPos, dest]) : L.latLngBounds([dest, dest]);
     mapRef.current.fitBounds(bounds, { padding: [90, 90], animate: true });
-  };
-
-  const handleArrived = async () => {
-    setArrivedLoading(true);
-    await onArrived();
-    setArrivedLoading(false);
   };
 
   return (
     <div className="relative h-screen w-full bg-zinc-950 overflow-hidden">
-
-      {/* Map */}
       <div ref={mapContainerRef} className="absolute inset-0 z-0" />
 
-      {/* Route line */}
       {mapRef.current && userPos && (
         <RoutingControl start={userPos} end={dest} map={mapRef.current} />
       )}
 
-      {/* Top gradient + status */}
+      {/* Top gradient */}
       <div className="absolute top-0 left-0 right-0 z-[500] pointer-events-none"
         style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0) 100%)', paddingBottom: '40px' }}>
         <div className="flex flex-col items-center pt-10 gap-2 px-4">
@@ -201,17 +162,15 @@ function NavigationMap({
             </span>
             <span className="text-blue-300 text-[10px] font-black uppercase tracking-widest">Navigation Active</span>
           </div>
-          <h1 className="text-white text-lg font-black italic uppercase tracking-tighter text-center drop-shadow-lg">
-            {charger.name}
-          </h1>
+          <h1 className="text-white text-lg font-black italic uppercase tracking-tighter text-center drop-shadow-lg">{charger.name}</h1>
           <p className="text-zinc-400 text-[10px] font-bold drop-shadow text-center">{charger.address}</p>
         </div>
       </div>
 
-      {/* Re-centre button */}
+      {/* Re-centre */}
       <button onClick={reCentre}
         className="absolute right-4 z-[500] w-11 h-11 bg-zinc-900/95 backdrop-blur border border-zinc-700 rounded-full flex items-center justify-center text-blue-400 shadow-xl active:scale-95 transition-all"
-        style={{ bottom: '210px' }}>
+        style={{ bottom: '230px' }}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
           <circle cx="12" cy="12" r="3"/>
           <line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/>
@@ -223,8 +182,6 @@ function NavigationMap({
       <div className="absolute bottom-0 left-0 right-0 z-[500]"
         style={{ background: 'linear-gradient(to top, rgba(5,5,10,0.98) 70%, transparent 100%)' }}>
         <div className="px-4 pt-6 pb-8 space-y-3">
-
-          {/* Stats row */}
           <div className="grid grid-cols-3 gap-2">
             {[
               { label: 'Power', value: `${charger.power_kw} kW` },
@@ -237,22 +194,16 @@ function NavigationMap({
               </div>
             ))}
           </div>
-
-          {/* Hold info */}
           <div className="bg-orange-500/5 border border-orange-500/20 rounded-2xl px-4 py-2.5 flex justify-between items-center">
             <p className="text-orange-300 text-[9px] font-black uppercase tracking-wide">Pre-Auth Hold Active</p>
             <p className="text-orange-400 font-black text-sm">₹{session.hold_amount}</p>
           </div>
-
-          {/* CTA */}
           <button
-            onClick={handleArrived}
+            onClick={async () => { setArrivedLoading(true); await onArrived(); setArrivedLoading(false); }}
             disabled={arrivedLoading}
-            className="w-full py-5 bg-emerald-500 text-black font-black uppercase text-xs tracking-[0.2em] rounded-[24px] active:scale-95 transition-all shadow-[0_0_30px_rgba(16,185,129,0.35)] disabled:opacity-60"
-          >
+            className="w-full py-5 bg-emerald-500 text-black font-black uppercase text-xs tracking-[0.2em] rounded-[24px] active:scale-95 transition-all shadow-[0_0_30px_rgba(16,185,129,0.35)] disabled:opacity-60">
             {arrivedLoading ? 'Starting Session...' : "⚡ I've Arrived — Start Charging"}
           </button>
-
           <p className="text-zinc-600 text-[8px] font-bold uppercase tracking-widest text-center">
             Tap only when physically at the charger
           </p>
@@ -337,8 +288,8 @@ function ActiveScreen({
 
       <div className="w-full max-w-sm grid grid-cols-3 gap-3">
         {[
-          { label: 'Power', value: `${power} kW` },
-          { label: 'Elapsed', value: fmt(timeElapsed) },
+          { label: 'Power', value: `${power} kW`, red: false },
+          { label: 'Elapsed', value: fmt(timeElapsed), red: false },
           { label: 'Left', value: fmt(timeRemaining), red: timeRemaining < 300 },
         ].map(({ label, value, red }) => (
           <div key={label} className={`border p-4 rounded-3xl text-center ${red ? 'bg-red-500/10 border-red-500/30' : 'bg-zinc-900/40 border-zinc-800/50'}`}>
@@ -370,38 +321,68 @@ function CompletedScreen({
   const supabase = createClient();
   const [step, setStep] = useState<'bill' | 'processing' | 'rating' | 'done'>('bill');
   const [rating, setRating] = useState(0);
+  // Amount driver pays beyond what was held (usually 0 if cost ≤ holdAmount)
   const restAmount = Math.max(0, cost - session.hold_amount);
 
   const handleSettle = async () => {
     setStep('processing');
-    const { data: wallet } = await supabase.from('wallets').select('balance, held').eq('user_id', userId).single();
+
+    const { data: wallet } = await supabase
+      .from('wallets').select('balance, held').eq('user_id', userId).single();
+
     if (wallet) {
+      // ── CORRECT WALLET MATH ──────────────────────────────────────────
+      // At booking:     held += holdAmount  (balance was NOT reduced)
+      // At completion:  balance -= actualCost  (deduct only what was used)
+      //                 held    -= holdAmount  (release the full hold)
+      // Net: if cost < holdAmount, driver keeps the difference in balance
       await supabase.from('wallets').update({
         balance: Math.max(0, wallet.balance - cost),
-        held: Math.max(0, wallet.held - session.hold_amount),
+        held:    Math.max(0, wallet.held - session.hold_amount),
         updated_at: new Date().toISOString(),
       }).eq('user_id', userId);
+
+      // Charge transaction (actual cost)
       await supabase.from('wallet_transactions').insert({
-        user_id: userId, type: 'charge', amount: -cost, description: 'Session payment', session_id: session.id,
+        user_id: userId, type: 'charge', amount: -cost,
+        description: 'Session payment', session_id: session.id,
       });
+
+      // Release transaction for the hold (so wallet history is clean)
+      await supabase.from('wallet_transactions').insert({
+        user_id: userId, type: 'release', amount: session.hold_amount,
+        description: 'Pre-auth hold released', session_id: session.id,
+      });
+
+      // Credit host 85%
       const hostPayout = +(cost * 0.85).toFixed(2);
-      const { data: hw } = await supabase.from('wallets').select('balance').eq('user_id', session.host_id).single();
+      const { data: hw } = await supabase.from('wallets')
+        .select('balance').eq('user_id', session.host_id).single();
       if (hw) {
-        await supabase.from('wallets').update({ balance: hw.balance + hostPayout, updated_at: new Date().toISOString() }).eq('user_id', session.host_id);
+        await supabase.from('wallets').update({
+          balance: hw.balance + hostPayout,
+          updated_at: new Date().toISOString(),
+        }).eq('user_id', session.host_id);
         await supabase.from('wallet_transactions').insert({
-          user_id: session.host_id, type: 'payout', amount: hostPayout, description: 'Session earnings (85%)', session_id: session.id,
+          user_id: session.host_id, type: 'payout', amount: hostPayout,
+          description: 'Session earnings (85%)', session_id: session.id,
         });
       }
     }
+
     await supabase.from('session_requests').update({
-      status: 'completed', ended_at: new Date().toISOString(), kwh_delivered: kwh, amount_charged: cost,
+      status: 'completed', ended_at: new Date().toISOString(),
+      kwh_delivered: kwh, amount_charged: cost,
     }).eq('id', session.id);
+
     setTimeout(() => setStep('rating'), 1200);
   };
 
   const submitRating = async (score: number) => {
     if (score > 0) {
-      await supabase.from('ratings').insert({ session_id: session.id, from_user: userId, to_user: session.host_id, score });
+      await supabase.from('ratings').insert({
+        session_id: session.id, from_user: userId, to_user: session.host_id, score,
+      });
       const { data: all } = await supabase.from('ratings').select('score').eq('to_user', session.host_id);
       if (all?.length) {
         const avg = all.reduce((s: number, r: any) => s + r.score, 0) / all.length;
@@ -414,6 +395,7 @@ function CompletedScreen({
   return (
     <div className="fixed inset-0 bg-black/97 backdrop-blur-xl z-[100] flex items-center justify-center p-5">
       <div className="bg-zinc-900 border border-zinc-800 w-full max-w-sm rounded-[36px] overflow-hidden shadow-2xl">
+
         {step === 'bill' && (
           <div className="p-6 animate-in fade-in zoom-in duration-300 space-y-5">
             <h2 className="text-white font-black italic uppercase text-center tracking-tighter text-xl">Session Complete</h2>
@@ -435,17 +417,20 @@ function CompletedScreen({
               </div>
               <p className="text-zinc-600 text-[8px] font-bold text-center">Deducted from your ChargeShare wallet</p>
             </div>
-            <button onClick={handleSettle} className="w-full py-5 bg-emerald-500 text-black font-black uppercase text-xs tracking-widest rounded-2xl active:scale-95 transition-all">
+            <button onClick={handleSettle}
+              className="w-full py-5 bg-emerald-500 text-black font-black uppercase text-xs tracking-widest rounded-2xl active:scale-95 transition-all">
               Confirm & Pay →
             </button>
           </div>
         )}
+
         {step === 'processing' && (
           <div className="py-16 text-center">
             <div className="w-16 h-16 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin mx-auto mb-6" />
             <p className="text-white font-black italic uppercase text-xs tracking-widest animate-pulse">Processing Payment...</p>
           </div>
         )}
+
         {step === 'rating' && (
           <div className="p-6 text-center animate-in slide-in-from-right duration-500 space-y-5">
             <p className="text-emerald-500 text-[10px] font-black uppercase tracking-[0.3em]">Rate this session</p>
@@ -456,16 +441,26 @@ function CompletedScreen({
                   className={`text-3xl transition-all ${rating >= star ? 'scale-110' : 'opacity-25'}`}>⚡</button>
               ))}
             </div>
-            <button onClick={() => submitRating(rating)} className="w-full py-4 bg-emerald-500 text-black font-black uppercase text-[10px] tracking-widest rounded-xl active:scale-95">Submit Review</button>
-            <button onClick={() => submitRating(0)} className="w-full py-2 text-zinc-600 font-bold uppercase text-[9px] tracking-widest hover:text-white transition-colors">Skip</button>
+            <button onClick={() => submitRating(rating)}
+              className="w-full py-4 bg-emerald-500 text-black font-black uppercase text-[10px] tracking-widest rounded-xl active:scale-95">
+              Submit Review
+            </button>
+            <button onClick={() => submitRating(0)}
+              className="w-full py-2 text-zinc-600 font-bold uppercase text-[9px] tracking-widest hover:text-white transition-colors">
+              Skip
+            </button>
           </div>
         )}
+
         {step === 'done' && (
           <div className="p-8 text-center animate-in zoom-in duration-500 space-y-5">
             <div className="w-24 h-24 bg-emerald-500 text-black rounded-full flex items-center justify-center mx-auto text-4xl font-black shadow-[0_0_40px_rgba(16,185,129,0.3)]">✓</div>
             <h3 className="text-white font-black italic uppercase text-2xl tracking-tighter">All Done!</h3>
             <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest">Session Closed · Wallet Updated</p>
-            <button onClick={onDone} className="w-full py-5 bg-zinc-800 text-white font-black uppercase text-xs tracking-widest rounded-2xl active:scale-95 transition-all">Back to Home</button>
+            <button onClick={onDone}
+              className="w-full py-5 bg-zinc-800 text-white font-black uppercase text-xs tracking-widest rounded-2xl active:scale-95 transition-all">
+              Back to Home
+            </button>
           </div>
         )}
       </div>
@@ -473,7 +468,6 @@ function CompletedScreen({
   );
 }
 
-// ── Skeleton screens ──────────────────────────────────────────────────────────
 function LoadingScreen() {
   return (
     <main className="min-h-screen bg-[#050a14] flex items-center justify-center">
@@ -514,28 +508,32 @@ export default function SessionPage() {
 
   const loadSession = useCallback(async () => {
     if (!id) return;
-    const { data: sess, error: sessErr } = await supabase.from('session_requests').select('*').eq('id', id).single();
-    if (sessErr || !sess) { setError('Session not found.'); setLoading(false); return; }
+    const { data: sess, error: e } = await supabase.from('session_requests').select('*').eq('id', id).single();
+    if (e || !sess) { setError('Session not found.'); setLoading(false); return; }
     setSession(sess as SessionData);
-    const { data: ch } = await supabase.from('chargers').select('name, address, power_kw, latitude, longitude').eq('id', sess.charger_id).single();
+    const { data: ch } = await supabase.from('chargers')
+      .select('name, address, power_kw, latitude, longitude').eq('id', sess.charger_id).single();
     if (ch) setCharger(ch as ChargerData);
     setLoading(false);
   }, [id]);
 
   useEffect(() => { loadSession(); }, [loadSession]);
 
+  // Realtime
   useEffect(() => {
     if (!id) return;
-    const channel = supabase.channel(`session-page-${id}`)
+    const ch = supabase.channel(`session-page-${id}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'session_requests', filter: `id=eq.${id}` },
         (payload) => setSession(prev => prev ? { ...prev, ...(payload.new as SessionData) } : null))
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { supabase.removeChannel(ch); };
   }, [id]);
 
   const handleArrived = async () => {
     if (!session) return;
-    await supabase.from('session_requests').update({ status: 'active', started_at: new Date().toISOString() }).eq('id', session.id);
+    await supabase.from('session_requests').update({
+      status: 'active', started_at: new Date().toISOString(),
+    }).eq('id', session.id);
     await supabase.from('notifications').insert({
       user_id: session.host_id, type: 'session_started', title: 'Driver has arrived',
       body: 'The driver has arrived and started charging.', data: { session_id: session.id }, read: false,
@@ -548,8 +546,6 @@ export default function SessionPage() {
     setSession(prev => prev ? { ...prev, status: 'completed' } : null);
   }, []);
 
-  const handleDone = () => router.replace('/');
-
   if (loading) return <LoadingScreen />;
   if (error || !session || !charger) return <ErrorScreen msg={error || 'Could not load session.'} onBack={() => router.replace('/')} />;
 
@@ -560,7 +556,7 @@ export default function SessionPage() {
     return (
       <>
         <main className="min-h-screen bg-[#050a14]" />
-        <CompletedScreen session={session} kwh={finalKwh} cost={finalCost} userId={user!.id} onDone={handleDone} />
+        <CompletedScreen session={session} kwh={finalKwh} cost={finalCost} userId={user!.id} onDone={() => router.replace('/')} />
       </>
     );
   }
@@ -578,7 +574,7 @@ export default function SessionPage() {
         </div>
         <div className="text-center">
           <h1 className="text-2xl font-black italic uppercase tracking-tighter">{charger.name}</h1>
-          <p className="text-zinc-500 text-[10px] mt-1">Session will begin when driver arrives</p>
+          <p className="text-zinc-500 text-[10px] mt-1">Session begins when driver arrives</p>
         </div>
         <button onClick={() => router.replace('/host')} className="py-3 px-8 border border-zinc-800 rounded-2xl text-zinc-500 text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors">
           Back to Host Dashboard
