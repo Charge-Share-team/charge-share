@@ -25,10 +25,15 @@ export default function ExplorePage() {
     if (!searchQuery.trim() || !mapInstance) return;
     setIsSearching(true);
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}`);
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery + ', India')}&limit=1`,
+        { headers: { 'Accept-Language': 'en' } }
+      );
       const data = await res.json();
       if (data?.[0]) {
-        mapInstance.flyTo([parseFloat(data[0].lat), parseFloat(data[0].lon)], 14);
+        const lat = parseFloat(data[0].lat);
+        const lng = parseFloat(data[0].lon);
+        mapInstance.flyTo([lat, lng], 13, { animate: true, duration: 1.5 });
         setSearchQuery('');
       }
     } catch (err) {
@@ -50,14 +55,14 @@ export default function ExplorePage() {
   return (
     <main className="relative h-screen w-full bg-black overflow-hidden">
 
-      {/* ── Full screen map ── */}
+      {/* Full screen map */}
       <MapComponent
         setMapInstance={setMapInstance}
         destination={destination}
         setDestination={setDestination}
       />
 
-      {/* ── Search bar — fixed top, same style as home page header ── */}
+      {/* Search bar */}
       {!destination && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 w-[90%] max-w-sm z-[1000]">
           <form onSubmit={handleSearch} className="relative">
@@ -66,7 +71,7 @@ export default function ExplorePage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search charging stations or cities..."
-              className="w-full bg-zinc-900/90 backdrop-blur-xl border border-zinc-800/50 rounded-3xl py-3.5 px-5 pr-12 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 shadow-2xl"
+              className="w-full bg-zinc-900/90 backdrop-blur-xl border border-zinc-800/50 rounded-3xl py-3.5 px-5 pr-12 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 shadow-2xl placeholder:text-zinc-600"
             />
             <button type="submit" className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400">
               {isSearching ? '⏳' : '🔍'}
@@ -75,7 +80,7 @@ export default function ExplorePage() {
         </div>
       )}
 
-      {/* ── Cancel navigation — above nav bar ── */}
+      {/* Cancel navigation */}
       {destination && (
         <div className="fixed bottom-32 left-1/2 -translate-x-1/2 w-[90%] max-w-sm z-[1000]">
           <div className="relative">
@@ -103,7 +108,7 @@ export default function ExplorePage() {
         </div>
       )}
 
-      {/* ── Bottom Nav — EXACT same as home page ── */}
+      {/* Bottom Nav */}
       <nav className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-sm h-16 bg-zinc-900/80 backdrop-blur-xl border border-zinc-800/50 rounded-3xl flex items-center justify-around z-[1000]">
         <Link href="/" className="flex flex-col items-center text-zinc-500 gap-1 hover:text-white transition-colors">
           <span className="text-lg">○</span>
@@ -131,5 +136,4 @@ export default function ExplorePage() {
       `}</style>
     </main>
   );
-  
 }

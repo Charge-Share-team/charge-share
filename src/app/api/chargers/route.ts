@@ -11,30 +11,22 @@ export const revalidate = 0;
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const lat    = parseFloat(searchParams.get('lat')    ?? '30.7333');
-  const lng    = parseFloat(searchParams.get('lng')    ?? '76.7794');
-  const radius = parseFloat(searchParams.get('radius') ?? '25');
+  const lat    = parseFloat(searchParams.get('lat')    ?? '20.5937'); // India centre
+  const lng    = parseFloat(searchParams.get('lng')    ?? '78.9629');
+  const radius = parseFloat(searchParams.get('radius') ?? '500');     // 500km default
 
-  // ── 1. Supabase local chargers via bbox RPC ──
+  // ── 1. All local DB chargers ─────────────────────────────────────────
   let localChargers: any[] = [];
   try {
     const { data, error } = await supabase.rpc('nearby_chargers_bbox', {
-      lat,
-      lng,
-      radius_km: radius,
+      lat, lng, radius_km: radius,
     });
     if (error) {
-      console.error('RPC error, falling back to plain select:', error.message);
-      // Fallback: direct query with only safe columns (no is_available risk)
-      const { data: fallback, error: fbErr } = await supabase
+      // Fallback: direct select
+      const { data: fallback } = await supabase
         .from('chargers')
-        .select('id, name, address, latitude, longitude, plug_types, power_kw, price_per_kwh, is_free, description')
-        .gte('latitude',  lat - radius / 111)
-        .lte('latitude',  lat + radius / 111)
-        .gte('longitude', lng - radius / 111)
-        .lte('longitude', lng + radius / 111);
-      if (fbErr) console.error('Fallback error:', fbErr.message);
-      else localChargers = fallback ?? [];
+        .select('id, name, address, latitude, longitude, plug_types, power_kw, price_per_kwh, is_free, description, host_id, is_available');
+      localChargers = fallback ?? [];
     } else {
       localChargers = data ?? [];
     }
@@ -42,14 +34,14 @@ export async function GET(req: NextRequest) {
     console.error('Supabase fetch threw:', e.message);
   }
 
-  // ── 2. Open Charge Map — scoped, fast timeout ──
+  // ── 2. OCM — all India public chargers ───────────────────────────────
   let ocmData: any[] = [];
-  const ocmKey = process.env.NEXT_PUBLIC_OCM_API_KEY;
+  const ocmKey = process.env.NEXT_PUBLIC_OCM_API_KEY || process.env.NEXT_PUBLIC_OPENCHARGE_API_KEY;
   if (ocmKey) {
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 7000);
-      const url = `https://api.openchargemap.io/v3/poi/?output=json&latitude=${lat}&longitude=${lng}&distance=${radius}&distanceunit=KM&maxresults=60&compact=true&verbose=false&key=${ocmKey}`;
+      const timer = setTimeout(() => controller.abort(), 12000);
+      const url = `https://api.openchargemap.io/v3/poi/?output=json&countrycode=IN&latitude=${lat}&longitude=${lng}&distance=${radius}&distanceunit=KM&maxresults=500&compact=true&verbose=false&key=${ocmKey}`;
       const res = await fetch(url, { signal: controller.signal });
       clearTimeout(timer);
       if (res.ok) ocmData = await res.json();
