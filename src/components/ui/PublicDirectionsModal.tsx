@@ -259,7 +259,7 @@ export default function PublicDirectionsModal({
   const currentStep = steps[activeStep];
 
   return (
-    <div className="fixed inset-0 z-[200] bg-zinc-950">
+    <div className="absolute inset-0 z-[100] bg-[#050505]">
 
       {/* Map */}
       <div ref={mapContainerRef} className="absolute inset-0 z-0" />
